@@ -6,7 +6,7 @@ require("babel-polyfill");
 const { default: TransportNodeHid } = require("@ledgerhq/hw-transport-node-hid");
 
 function help() {
-  console.log('AVA Wallet CLI');
+  console.log('Avalanche Wallet CLI');
   console.log('Commands:');
   console.log('  list-connected-ledgers List connected ledger devices');
   console.log('  ledger-model           Display the model info of the first ledger');
@@ -41,7 +41,7 @@ async function main() {
   if (arg_list_devices) await list_devices();
   if (arg_ledger_model) await ledger_model();
 
-  console.log('AVA Wallet CLI: Missing command. Try "help".');
+  console.log('Avalanche Wallet CLI: Missing command. Try "help".');
 }
 
 main();

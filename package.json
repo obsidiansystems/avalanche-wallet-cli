@@ -1,0 +1,19 @@
+{
+  "name": "ava-wallet-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Obsidian Systems, LLC",
+  "license": "Apache-2.0",
+  "bin": {
+    "ava-ledger-cli": "./cli.js"
+  },
+  "dependencies": {
+    "babel-polyfill": "^6.26.0",
+    "@ledgerhq/hw-transport-node-hid": "^5.19.1"
+  },
+  "devDependencies": {}
+}

@@ -6,7 +6,8 @@ require("babel-polyfill");
 const commander = require("commander");
 const avalanche = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
-const Avalanche = require("@ledgerhq/hw-app-avalanche").default;
+// TODO re-add this
+//const Avalanche = require("@ledgerhq/hw-app-avalanche").default;
 
 // TODO replace this with something better
 function log_error_and_exit(err) {
@@ -67,4 +68,3 @@ async function main() {
 }
 
 main();
-

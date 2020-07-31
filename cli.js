@@ -4,6 +4,7 @@
 require("babel-polyfill");
 
 const commander = require("commander");
+const avalanche = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
 const Avalanche = require("@ledgerhq/hw-app-avalanche").default;
 

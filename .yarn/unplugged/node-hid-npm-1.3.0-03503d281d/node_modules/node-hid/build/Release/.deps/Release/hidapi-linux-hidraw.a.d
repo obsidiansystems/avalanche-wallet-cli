@@ -1,0 +1,1 @@
+cmd_Release/hidapi-linux-hidraw.a := ln -f "Release/obj.target/hidapi-linux-hidraw.a" "Release/hidapi-linux-hidraw.a" 2>/dev/null || (rm -rf "Release/hidapi-linux-hidraw.a" && cp -af "Release/obj.target/hidapi-linux-hidraw.a" "Release/hidapi-linux-hidraw.a")

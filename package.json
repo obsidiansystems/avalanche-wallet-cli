@@ -4,6 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "setup": "yarn setup_ledgerjs && yarn setup_hid && yarn setup_ava && yarn link_hid && yarn link_ava",
+    "setup_ledgerjs": "cd ledgerjs && yarn",
+    "setup_hid": "cd ledgerjs/packages/hw-transport-node-hid && npm install --save-dev babel-cli && yarn build",
+    "link_hid": "cd ledgerjs/packages/hw-transport-node-hid && yarn link && cd - && yarn link @ledgerhq/hw-transport-node-hid",
+    "setup_ava": "cd ledgerjs/packages/hw-app-avalanche && npm install --save-dev babel-cli && yarn build",
+    "link_ava": "cd ledgerjs/packages/hw-app-avalanche && yarn link && cd - && yarn link @ledgerhq/hw-app-avalanche",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Obsidian Systems, LLC",
@@ -12,8 +18,10 @@
     "ava-ledger-cli": "./cli.js"
   },
   "dependencies": {
+    "@ledgerhq/hw-app-avalanche": "./ledgerjs/packages/hw-app-avalanche",
+    "@ledgerhq/hw-transport-node-hid": "./ledgerjs/packages/hw-transport-node-hid",
     "babel-polyfill": "^6.26.0",
-    "@ledgerhq/hw-transport-node-hid": "^5.19.1"
+    "commander": "^6.0.0"
   },
   "devDependencies": {}
 }

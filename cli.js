@@ -1,47 +1,69 @@
-#! /usr/bin/env node
+#!/usr/bin/env node
 
 // Required by ledgerjs
 require("babel-polyfill");
 
-const { default: TransportNodeHid } = require("@ledgerhq/hw-transport-node-hid");
+const commander = require("commander");
+const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
+const Avalanche = require("@ledgerhq/hw-app-avalanche").default;
 
-function help() {
-  console.log('Avalanche Wallet CLI');
-  console.log('Commands:');
-  console.log('  list-connected-ledgers List connected ledger devices');
-  console.log('  ledger-model           Display the model info of the first ledger');
-  console.log('  help                   Display this help text');
-  process.exit();
+// TODO replace this with something better
+function log_error_and_exit(err) {
+  console.error(err.message);
+  process.exit(1);
 }
 
-async function list_devices() {
-  console.log('List devices');
+// Convenience function to add the --device option
+commander.Command.prototype.add_device_option = function() {
+  return this.option("-d, --device <device>", "device to use");
+}
+
+const program = new commander.Command();
+
+program.version("0.0.1");
+
+program
+  .command("list-devices")
+  .action(async () => {
   console.log(await TransportNodeHid.list());
-  process.exit();
-}
+});
 
-async function ledger_model() {
-  await TransportNodeHid.create().then(transport => {
+program
+  .command("get-device-model")
+  .add_device_option()
+  .action(async (options) => {
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     console.log(transport.deviceModel);
-    process.exit();
-  }).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-}
+});
+
+// TODO does not work on Ava ledger app
+program
+  .command("get-wallet-id")
+  .add_device_option()
+  .action(async (options) => {
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ava = new Avalanche(transport);
+    const result = await ava.getWalletId().catch(log_error_and_exit);
+    console.log(result);
+});
+
+program
+  .command("get-wallet-pubkey <path>")
+  .description("get the public key of a derivation path. <path> should be 'account/change/address_index'")
+  .add_device_option()
+  .action(async (path, options) => {
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ava = new Avalanche(transport);
+    // BIP32: m / purpose' / coin_type' / account' / change / address_index
+    path = "m/44'/9000'/" + path
+    console.log("Getting public key for path ", path);
+    const result = await ava.getWalletPublicKey(path).catch(log_error_and_exit);
+    console.log(result);
+});
 
 async function main() {
-  const args = process.argv.slice(2);
-
-  const arg_help = args.indexOf('help') >= 0;
-  const arg_list_devices = args.indexOf('list-connected-ledgers') >= 0;
-  const arg_ledger_model = args.indexOf('ledger-model') >= 0;
-
-  if (arg_help) help();
-  if (arg_list_devices) await list_devices();
-  if (arg_ledger_model) await ledger_model();
-
-  console.log('Avalanche Wallet CLI: Missing command. Try "help".');
+  await program.parseAsync(process.argv);
 }
 
 main();
+

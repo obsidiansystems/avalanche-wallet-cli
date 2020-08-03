@@ -1,7 +1,13 @@
 {
   "private": true,
+  "scripts": {
+    "build": "yarn pkg cli"
+  },
   "workspaces": [
     "cli",
     "ledgerjs/packages/hw-app-avalanche"
-  ]
+  ],
+  "devDependencies": {
+    "pkg": "^4.4.9"
+  }
 }

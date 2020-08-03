@@ -160,14 +160,18 @@ function parse_amount(str) {
 program
   .command("transfer")
   .description("Transfer AVAX between accounts")
-  .requiredOption("--amount <amount>", "amount to transfer, specified in nanoAVAX")
-  .requiredOption("--from <account>", "account the funds will be taken from")
-  .requiredOption("--to <account>", "recipient account")
+  .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
+  .requiredOption("--from <account>", "Account the funds will be taken from")
+  .requiredOption("--to <account>", "Recipient account")
+  // TODO this option makes it very easy for someone to send a load of AVAX somewhere without realising.
+  // e.g. transfer --amount 10 --from my-account --to friend --change my-other-account-with-typo
+  // and if you have 10010 coins originally, you just sent 10000 coins to the wrong address
+  .option("--change <account>", "Account leftover funds will be sent to. Defaults to the 'from' address.")
   .add_node_option()
   .action(async options => {
     const toAddress = options.to;
     const fromAddress = options.from;
-    const changeAddress = options.from; // TODO allow the user to specify this
+    const changeAddress = options.change === undefined ? options.from : options.change;
     const amount = parse_amount(options.amount);
 
     const avm = ava_js_with_node(options.node).AVM();

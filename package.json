@@ -1,24 +1,7 @@
 {
-  "name": "ava-wallet-cli",
-  "engines": {
-    "node": "12.14.1"
-  },
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Obsidian Systems, LLC",
-  "license": "Apache-2.0",
-  "bin": {
-    "ava-ledger-cli": "./cli.js"
-  },
-  "dependencies": {
-    "@ledgerhq/hw-app-avalanche": "/etc/home/tom/obsidian/ava/avalanche-wallet-cli/ledgerjs/packages/hw-app-avalanche",
-    "@ledgerhq/hw-transport-node-hid": "^5.21.0",
-    "avalanche": "^2.2.1",
-    "babel-polyfill": "^6.26.0",
-    "commander": "^6.0.0"
-  }
+  "private": true,
+  "workspaces": [
+    "cli",
+    "ledgerjs/packages/hw-app-avalanche"
+  ]
 }

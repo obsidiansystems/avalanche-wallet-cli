@@ -3,6 +3,7 @@
 // Required by ledgerjs
 require("babel-polyfill");
 
+const BN = require("bn.js");
 const commander = require("commander");
 const avalanche = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
@@ -60,6 +61,15 @@ program
     console.log("Getting public key for path ", path);
     const result = await ava.getWalletPublicKey(path).catch(log_error_and_exit);
     console.log(result);
+});
+
+program
+  .command("get-balance <address>")
+  .action(async address => {
+    const ava = new avalanche.Avalanche("localhost", 9650, "http", 3);
+    const avm = ava.AVM();
+    let result = await avm.getBalance(address, "AVA").catch(log_error_and_exit);
+    console.log(result.toString(10, 0));
 });
 
 async function main() {

@@ -9,6 +9,8 @@ const avalanche = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
 const Avalanche = require("@ledgerhq/hw-app-avalanche").default;
 
+const AVAX_ASSET_ID = "AVA"; // TODO changes to AVAX in next release
+
 // TODO replace this with something better
 function log_error_and_exit(err) {
   console.error(err.message);
@@ -68,7 +70,7 @@ program
   .action(async address => {
     const ava = new avalanche.Avalanche("localhost", 9650, "http", 3);
     const avm = ava.AVM();
-    let result = await avm.getBalance(address, "AVA").catch(log_error_and_exit);
+    let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
     console.log(result.toString(10, 0));
 });
 

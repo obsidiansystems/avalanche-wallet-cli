@@ -236,6 +236,8 @@ __metadata:
     babel-polyfill: ^6.26.0
     bn.js: ^5.1.2
     commander: ^6.0.0
+    create-hash: ^1.2.0
+    elliptic: ^6.5.3
     urijs: ^1.19.2
   bin:
     ava-ledger-cli: ./cli.js
@@ -756,7 +758,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"elliptic@npm:^6.0.0, elliptic@npm:^6.5.2":
+"elliptic@npm:^6.0.0, elliptic@npm:^6.5.2, elliptic@npm:^6.5.3":
   version: 6.5.3
   resolution: "elliptic@npm:6.5.3"
   dependencies:

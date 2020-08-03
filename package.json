@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "preinstall": "cd ledgerjs && yarn install && yarn build",
     "build": "yarn pkg cli"
   },
   "workspaces": [

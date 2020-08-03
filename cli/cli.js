@@ -74,6 +74,15 @@ program
     console.log(result.toString(10, 0));
 });
 
+program
+  .command("get-utxos <address>")
+  .action(async address => {
+    const ava = new avalanche.Avalanche("localhost", 9650, "http", 3);
+    const avm = ava.AVM();
+    let result = await avm.getUTXOs([address]).catch(log_error_and_exit);
+    console.log(result);
+});
+
 async function main() {
   await program.parseAsync(process.argv);
 }

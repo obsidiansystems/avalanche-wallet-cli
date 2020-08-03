@@ -4,6 +4,7 @@
 require("babel-polyfill");
 
 const BN = require("bn.js");
+const URI = require("urijs");
 const commander = require("commander");
 const avalanche = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
@@ -20,6 +21,16 @@ function log_error_and_exit(err) {
 // Convenience function to add the --device option
 commander.Command.prototype.add_device_option = function() {
   return this.option("-d, --device <device>", "device to use");
+}
+
+// Convenience function to add the --node option
+commander.Command.prototype.add_node_option = function() {
+  return this.option("-n, --node <uri>", "node to use", "http://localhost:9650");
+}
+
+function avalanche_with_node(uri_string) {
+  const uri = URI(uri_string);
+  return new avalanche.Avalanche(uri.hostname(), uri.port(), uri.protocol(), 3);
 }
 
 const program = new commander.Command();
@@ -67,8 +78,9 @@ program
 
 program
   .command("get-balance <address>")
-  .action(async address => {
-    const ava = new avalanche.Avalanche("localhost", 9650, "http", 3);
+  .add_node_option()
+  .action(async (address, options) => {
+    const ava = avalanche_with_node(options.node);
     const avm = ava.AVM();
     let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
     console.log(result.toString(10, 0));
@@ -76,8 +88,9 @@ program
 
 program
   .command("get-utxos <address>")
-  .action(async address => {
-    const ava = new avalanche.Avalanche("localhost", 9650, "http", 3);
+  .add_node_option()
+  .action(async (address, options) => {
+    const ava = avalanche_with_node(options.node);
     const avm = ava.AVM();
     let result = await avm.getUTXOs([address]).catch(log_error_and_exit);
     console.log(result);

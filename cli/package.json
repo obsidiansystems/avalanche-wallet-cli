@@ -20,6 +20,7 @@
     "avalanche": "^2.2.1",
     "babel-polyfill": "^6.26.0",
     "bn.js": "^5.1.2",
-    "commander": "^6.0.0"
+    "commander": "^6.0.0",
+    "urijs": "^1.19.2"
   }
 }

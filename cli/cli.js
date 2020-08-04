@@ -79,6 +79,11 @@ program
     console.log("Getting public key for path ", path);
     const result = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
     console.log(result);
+    pubk = Buffer.from(result,'hex');
+    KC = new AvaJS.AVMKeyPair();
+    pubk_hash = KC.addressFromPublicKey(pubk);
+    address = BinTools.avaSerialize(pubk_hash);
+    console.log(address);
 });
 
 program

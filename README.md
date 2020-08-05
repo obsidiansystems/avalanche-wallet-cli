@@ -1,5 +1,7 @@
 # Avalanche Wallet CLI
 
+CI Test
+
 ## Installing dependencies
 
 The repo is currently set up for local dev of ledgerjs.

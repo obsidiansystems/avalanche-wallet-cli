@@ -1,5 +1,7 @@
 # Avalanche Wallet CLI
 
+![Yarn CI](https://github.com/obsidiansystems/avalanche-wallet-cli/workflows/Yarn%20CI/badge.svg?branch=master)
+
 ## Installing dependencies
 
 The repo is currently set up for local dev of ledgerjs.

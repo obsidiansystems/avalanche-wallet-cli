@@ -27,6 +27,11 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
     - name: Install dependencies
-      run: yarn --frozen-lockfile
+      run: |
+        apt update
+        apt install libusb-1.0-0-dev -y
+        apt install libudev1 -y
+        apt install libudev-dev -y
+        yarn install --frozen-lockfile
     - name: Build pkg
       run: yarn build

@@ -30,7 +30,7 @@ commander.Command.prototype.add_device_option = function() {
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
-  return this.option("-n, --node <uri>", "node to use", "http://localhost:9650");
+  return this.option("-n, --node <uri>", "node to use", "https://testapi.avax.network");
 }
 
 function ava_js_with_node(uri_string) {
@@ -107,24 +107,24 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-function sign_UnsignedTx(unsignedTx) {
+async function sign_UnsignedTx(unsignedTx) {
   const txbuff = unsignedTx.toBuffer();
   const msg = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = sign_BaseTx(baseTx, msg);
+  const sigs = await sign_BaseTx(baseTx, msg);
   return new AvaJS.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-function sign_BaseTx(baseTx, msg) {
+async function sign_BaseTx(baseTx, msg) {
   const sigs = [];
   for (let i = 0; i < baseTx.ins.length; i++) {
     const cred = AvaJS.SelectCredentialClass(baseTx.ins[i].getInput().getCredentialID());
     const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      const signval = sign_AVMKeyPair(msg);
+      const signval = await sign_AVMKeyPair(msg);
       const sig = new AvaJS.Signature();
-      sig.fromBuffer(signval);
+      sig.fromBuffer(Buffer.from(signval, "hex"));
       cred.addSignature(sig);
     }
     sigs.push(cred);
@@ -133,23 +133,31 @@ function sign_BaseTx(baseTx, msg) {
 }
 
 /* Adapted from avm/keychain.ts for class AVMKeyPair */
-function sign_AVMKeyPair(msg) {
-  const sigObj = sign_bytes(msg);
-  const recovery = Buffer.alloc(1);
-  recovery.writeUInt8(sigObj.recoveryParam, 0);
-  const r = Buffer.from(sigObj.r.toArray('be', 32)); // we have to skip native Buffer class, so this is the way
-  const s = Buffer.from(sigObj.s.toArray('be', 32)); // we have to skip native Buffer class, so this is the way
-  const result = Buffer.concat([r, s, recovery], 65);
-  return result;
+async function sign_AVMKeyPair(msg) {
+  const sigObj = await sign_bytes(msg);
+  //const recovery = Buffer.alloc(1);
+  //recovery.writeUInt8(sigObj.recoveryParam, 0);
+  //const r = Buffer.from(sigObj.r.toArray('be', 32)); // we have to skip native Buffer class, so this is the way
+  //const s = Buffer.from(sigObj.s.toArray('be', 32)); // we have to skip native Buffer class, so this is the way
+  //const result = Buffer.concat([r, s, recovery], 65);
+  //return result;
+  return sigObj;
 }
 
 // TODO Use the ledger signing function
 // TODO Remove the elliptic dependency
-function sign_bytes(msg) {
-  let ec = new EC('secp256k1');
-  let priv_key = BinTools.avaDeserialize("2hvRRh7R5sbDKcrDKimHiJYmfVJgMBvYqhpFoH2Bz4hpiqNyVM");
-  let keypair = ec.keyFromPrivate(priv_key);
-  return keypair.sign(msg, undefined, { canonical: true });
+async function sign_bytes(msg) {
+  const transport = await TransportNodeHid.open().catch(log_error_and_exit);
+  const ledger = new Ledger(transport);
+  // BIP44: m / purpose' / coin_type' / account' / change / address_index
+  path = "m/44'/9000'/0'/0'";
+  hash = msg;
+  console.log("Signing hash ", hash, " with path ", path);
+  const result = await ledger.signHash(path, msg).catch(log_error_and_exit);
+  console.log(result);
+  result2 = result.slice(64, -4);
+  console.log(result2);
+  return result2;
 }
 
 function parse_amount(str) {
@@ -184,7 +192,7 @@ program
     const unsignedTx = await
       avm.buildBaseTx(utxos, amount, [toAddress], [fromAddress], [changeAddress], AVAX_ASSET_ID_SERIALIZED)
       .catch(log_error_and_exit);
-    const signed = sign_UnsignedTx(unsignedTx);
+    const signed = await sign_UnsignedTx(unsignedTx);
     const txid = await avm.issueTx(signed);
     console.log(txid);
 });

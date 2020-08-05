@@ -14,7 +14,7 @@ $ nix-shell
 
 ```
 $ nix-shell
-[nix-shell:~]$ yarn node cli/cli.js
+[nix-shell:~]$ yarn node cli/cli.js --help
 ```
 
 ## Building an executable

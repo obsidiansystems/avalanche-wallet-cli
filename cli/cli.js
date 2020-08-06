@@ -107,9 +107,7 @@ function get_extended_public_key() {
 
 // Scan change addresses and find the first unused address (i.e. the first with no UTXOs)
 // Adapted from wallet code. TODO this doesn't use the INDEX_RANGE thing, should it?
-async function get_change_address(ava) {
-  const avm = ava.AVM();
-
+async function get_change_address(avm, log = false) {
   const extended_public_key = get_extended_public_key();
   const root_key = HDKey.fromExtendedKey(extended_public_key);
         change_key = root_key.deriveChild(1); // 1 = change
@@ -121,7 +119,7 @@ async function get_change_address(ava) {
     const address = hdkey_to_avax_address(key);
     const utxos = await avm.getUTXOs([address]).catch(log_error_and_exit);
     const is_unused = utxos.getAllUTXOs().length === 0;
-    console.error("Index", index, address, is_unused ? "Unused" : "Used");
+    if (log) console.error("Index", index, address, is_unused ? "Unused" : "Used");
     if (is_unused) foundAddress = address;
     index++;
   }
@@ -189,8 +187,8 @@ program
   .description("Get the first unused change address")
   .add_node_option()
   .action(async options => {
-    const ava = ava_js_with_node(options.node);
-    let result = await get_change_address(ava);
+    const avm = ava_js_with_node(options.node).AVM();
+    let result = await get_change_address(avm, true);
     console.log(result);
 });
 
@@ -275,18 +273,15 @@ program
   .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
   .requiredOption("--from <account>", "Account the funds will be taken from")
   .requiredOption("--to <account>", "Recipient account")
-  // TODO this option makes it very easy for someone to send a load of AVAX somewhere without realising.
-  // e.g. transfer --amount 10 --from my-account --to friend --change my-other-account-with-typo
-  // and if you have 10010 coins originally, you just sent 10000 coins to the wrong address
-  .option("--change <account>", "Account leftover funds will be sent to. Defaults to the 'from' address.")
   .add_node_option()
   .action(async options => {
+    const avm = ava_js_with_node(options.node).AVM();
+
     const toAddress = options.to;
     const fromAddress = options.from;
-    const changeAddress = options.change === undefined ? options.from : options.change;
+    const changeAddress = await get_change_address(avm);
     const amount = parse_amount(options.amount);
 
-    const avm = ava_js_with_node(options.node).AVM();
     const utxos = await avm.getUTXOs([fromAddress]).catch(log_error_and_exit);
     const unsignedTx = await
       avm.buildBaseTx(utxos, amount, [toAddress], [fromAddress], [changeAddress], AVAX_ASSET_ID_SERIALIZED)

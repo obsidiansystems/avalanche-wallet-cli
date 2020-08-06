@@ -147,7 +147,6 @@ async function sum_child_balances(avm, hdkey) {
   var index = 0;
   var balance = new BN(0);
   var all_unused = false;
-  var unused_count = 0;
   while (!all_unused) {
     // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
     batch_addresses = [];

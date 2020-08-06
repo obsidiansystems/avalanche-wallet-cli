@@ -129,31 +129,44 @@ async function get_change_address(ava) {
   return foundAddress;
 }
 
+function hdkey_to_pkh(hdkey) {
+  const KC = new AvaJS.AVMKeyPair();
+  return KC.addressFromPublicKey(hdkey.publicKey);
+}
+
+function pkh_to_avax_address(pkh) {
+  return "X-" + BinTools.avaSerialize(pkh);
+}
+
 // Convert a 'hdkey' (from the library of the same name) to an AVAX address.
 function hdkey_to_avax_address(hdkey) {
-  const KC = new AvaJS.AVMKeyPair();
-  const pubk_hash = KC.addressFromPublicKey(hdkey.publicKey);
-  const address = BinTools.avaSerialize(pubk_hash);
-  return "X-" + address
+  return pkh_to_avax_address(hdkey_to_pkh(hdkey));
 }
 
 async function sum_child_balances(avm, hdkey) {
   var index = 0;
   var balance = new BN(0);
+  var all_unused = false;
   var unused_count = 0;
-  // TODO each iteration takes too long. We can probably batch calls to getUTXOs
-  // and calculate the balances ourselves to speed this up.
-  while (true) {
-    const child = hdkey.deriveChild(index);
-    const address = hdkey_to_avax_address(child);
-    const child_utxos = await avm.getUTXOs([address]).catch(log_error_and_exit);
-    const is_unused = child_utxos.getAllUTXOs().length === 0;
-    const this_balance = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
-    console.error("Index", index, address, this_balance.toString());
-    is_unused ? unused_count++ : unused_count = 0;
-    if (unused_count > INDEX_RANGE) break;
-    balance = balance.add(this_balance);
-    index++;
+  while (!all_unused) {
+    // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
+    batch_addresses = [];
+    batch_pkhs = [];
+    for (var i = 0; i < INDEX_RANGE; i++) {
+      const child = hdkey.deriveChild(index + i);
+      const pkh = hdkey_to_pkh(child);
+      batch_pkhs.push(pkh);
+      const address = pkh_to_avax_address(pkh);
+      batch_addresses.push(address);
+    }
+    // Get UTXOs for this batch
+    const batch_utxoset = await avm.getUTXOs(batch_addresses).catch(log_error_and_exit);
+    // Total the balance for all PKHs
+    const batch_balance = await batch_utxoset.getBalance(batch_pkhs, AVAX_ASSET_ID_SERIALIZED);
+
+    balance = balance.add(batch_balance);
+    all_unused = batch_utxoset.getAllUTXOs().length === 0;
+    index = index + INDEX_RANGE;
   }
   return balance;
 }
@@ -167,9 +180,7 @@ program
     const avm = ava.AVM();
     const extended_public_key = get_extended_public_key();
     const root_key = HDKey.fromExtendedKey(extended_public_key);
-    console.error("Getting non-change balances");
     const change_balance = await sum_child_balances(avm, root_key.deriveChild(0));
-    console.error("Getting change balances");
     const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1));
     console.log(change_balance.add(non_change_balance).toString());
 });

@@ -1,7 +1,7 @@
 { pkgs ? import (builtins.fetchTarball {
     name = "nixos-20-03";
-    url = "https://github.com/nixos/nixpkgs/archive/release-20.03.tar.gz";
-    sha256 = "164j4h71pc6419762zbbmc6f2q727971l8f2vv3wkry827r47gbk";
+    url = "https://github.com/NixOS/nixpkgs/archive/20.03.tar.gz";
+    sha256 = "0182ys095dfx02vl2a20j1hz92dx3mfgz2a6fhn31bqlp1wa8hlq";
   }) {}
 }:
 let

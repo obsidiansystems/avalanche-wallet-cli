@@ -3,6 +3,7 @@
 // Required by ledgerjs
 require("babel-polyfill");
 
+const HDKey = require('hdkey');
 const createHash = require('create-hash');
 const EC = require("elliptic").ec; // TODO remove
 const BN = require("bn.js");
@@ -16,6 +17,8 @@ const BinTools = AvaJS.BinTools.getInstance();
 
 const AVAX_ASSET_ID = "AVA"; // TODO changes to AVAX in next release
 const AVAX_ASSET_ID_SERIALIZED = BinTools.b58ToBuffer("9xc4gcJYYg1zfLeeEFQDLx4HnCk81yUmV1DAUc6VfJFj"); // TODO is this correct? I got this from my account's UTXOSet. I have no idea how it is created.
+const AVA_BIP32_PREFIX = "m/44'/9000'/"
+const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 
 // TODO replace this with something better
 function log_error_and_exit(err) {
@@ -75,7 +78,7 @@ program
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
     // BIP32: m / purpose' / coin_type' / account' / change / address_index
-    path = "m/44'/9000'/" + path
+    path = AVA_BIP32_PREFIX + path
     console.log("Getting public key for path ", path);
     const result = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
     console.log(result);
@@ -88,12 +91,97 @@ program
 
 program
   .command("get-balance <address>")
+  .description("Get the AVAX balance of a particular address")
   .add_node_option()
   .action(async (address, options) => {
     const ava = ava_js_with_node(options.node);
     const avm = ava.AVM();
     let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
     console.log(result.toString(10, 0));
+});
+
+// TODO get this from the ledger using the given account
+function get_extended_public_key() {
+  return "xpub6C6ML72NdxwLnu2hW85mGhX3oTsfFW12KAHP2Q3aK13tYY7c4TN272qnYQKmju17AwSqr982Su2pVLmRrkRnGP3C5BDbZrVje8Eq7SxzkfP";
+}
+
+// Scan change addresses and find the first unused address (i.e. the first with no UTXOs)
+// Adapted from wallet code. TODO this doesn't use the INDEX_RANGE thing, should it?
+async function get_change_address(ava) {
+  const avm = ava.AVM();
+
+  const extended_public_key = get_extended_public_key();
+  const root_key = HDKey.fromExtendedKey(extended_public_key);
+        change_key = root_key.deriveChild(1); // 1 = change
+
+  var index = 0;
+  var foundAddress = null;
+  while (foundAddress === null) {
+    const key = change_key.deriveChild(index);
+    const address = hdkey_to_avax_address(key);
+    const utxos = await avm.getUTXOs([address]).catch(log_error_and_exit);
+    const is_unused = utxos.getAllUTXOs().length === 0;
+    console.error("Index", index, address, is_unused ? "Unused" : "Used");
+    if (is_unused) foundAddress = address;
+    index++;
+  }
+
+  return foundAddress;
+}
+
+// Convert a 'hdkey' (from the library of the same name) to an AVAX address.
+function hdkey_to_avax_address(hdkey) {
+  const KC = new AvaJS.AVMKeyPair();
+  const pubk_hash = KC.addressFromPublicKey(hdkey.publicKey);
+  const address = BinTools.avaSerialize(pubk_hash);
+  return "X-" + address
+}
+
+async function sum_child_balances(avm, hdkey) {
+  var index = 0;
+  var balance = new BN(0);
+  var unused_count = 0;
+  // TODO each iteration takes too long. We can probably batch calls to getUTXOs
+  // and calculate the balances ourselves to speed this up.
+  while (true) {
+    const child = hdkey.deriveChild(index);
+    const address = hdkey_to_avax_address(child);
+    const child_utxos = await avm.getUTXOs([address]).catch(log_error_and_exit);
+    const is_unused = child_utxos.getAllUTXOs().length === 0;
+    const this_balance = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
+    console.error("Index", index, address, this_balance.toString());
+    is_unused ? unused_count++ : unused_count = 0;
+    if (unused_count > INDEX_RANGE) break;
+    balance = balance.add(this_balance);
+    index++;
+  }
+  return balance;
+}
+
+program
+  .command("get-wallet-balance")
+  .description("Get the total balance of all accounts from this wallet")
+  .add_node_option()
+  .action(async options => {
+    const ava = ava_js_with_node(options.node);
+    const avm = ava.AVM();
+    const extended_public_key = get_extended_public_key();
+    const root_key = HDKey.fromExtendedKey(extended_public_key);
+    console.error("Getting non-change balances");
+    const change_balance = await sum_child_balances(avm, root_key.deriveChild(0));
+    console.error("Getting change balances");
+    const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1));
+    console.log(change_balance.add(non_change_balance).toString());
+});
+
+program
+  .command("get-change-address")
+  .description("Get the first unused change address")
+  .add_node_option()
+  .action(async options => {
+    const ava = ava_js_with_node(options.node);
+    let result = await get_change_address(ava);
+    console.log(result);
 });
 
 program
@@ -150,7 +238,8 @@ async function sign_bytes(msg) {
   const transport = await TransportNodeHid.open().catch(log_error_and_exit);
   const ledger = new Ledger(transport);
   // BIP44: m / purpose' / coin_type' / account' / change / address_index
-  path = "m/44'/9000'/0'/0'";
+  // TODO pass the real path in
+  path = AVA_BIP32_PREFIX + "0'/0/0";
   hash = msg;
   console.log("Signing hash ", hash, " with path ", path);
   const result = await ledger.signHash(path, msg).catch(log_error_and_exit);

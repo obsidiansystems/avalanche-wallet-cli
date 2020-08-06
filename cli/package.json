@@ -23,6 +23,7 @@
     "commander": "^6.0.0",
     "create-hash": "^1.2.0",
     "elliptic": "^6.5.3",
+    "hdkey": "^2.0.1",
     "urijs": "^1.19.2"
   }
 }

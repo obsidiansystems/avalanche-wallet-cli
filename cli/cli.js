@@ -5,7 +5,6 @@ require("babel-polyfill");
 
 const HDKey = require('hdkey');
 const createHash = require('create-hash');
-const EC = require("elliptic").ec; // TODO remove
 const BN = require("bn.js");
 const URI = require("urijs");
 const commander = require("commander");
@@ -106,7 +105,8 @@ function get_extended_public_key() {
 }
 
 // Scan change addresses and find the first unused address (i.e. the first with no UTXOs)
-// Adapted from wallet code. TODO this doesn't use the INDEX_RANGE thing, should it?
+// Adapted from wallet code.
+// TODO this doesn't use the INDEX_RANGE thing, should it? Seems like it will reuse change addresses.
 async function get_change_address(avm, log = false) {
   const extended_public_key = get_extended_public_key();
   const root_key = HDKey.fromExtendedKey(extended_public_key);
@@ -141,12 +141,17 @@ function hdkey_to_avax_address(hdkey) {
   return pkh_to_avax_address(hdkey_to_pkh(hdkey));
 }
 
+// Given a hdkey (at the change or non-change level), sum the UTXO balances
+// under that key.
 async function sum_child_balances(avm, hdkey) {
-  var index = 0;
   var balance = new BN(0);
+
+  // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
+  // Only when INDEX_RANGE accounts have no UTXOs do we assume we are done
+  // TODO this loop is duplicated in prepare_for_transfer, dedupe it
+  var index = 0;
   var all_unused = false;
   while (!all_unused) {
-    // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
     batch_addresses = [];
     batch_pkhs = [];
     for (var i = 0; i < INDEX_RANGE; i++) {
@@ -161,11 +166,72 @@ async function sum_child_balances(avm, hdkey) {
     // Total the balance for all PKHs
     const batch_balance = await batch_utxoset.getBalance(batch_pkhs, AVAX_ASSET_ID_SERIALIZED);
 
+    for (const [pkh, utxoids] of Object.entries(batch_utxoset.addressUTXOs)) {
+      var bal = new BN(0);
+      for (const utxoid of Object.keys(utxoids)) {
+        bal = bal.add(batch_utxoset.utxos[utxoid].getOutput().getAmount());
+      }
+      console.error(pkh_to_avax_address(Buffer.from(pkh, 'hex')), bal.toString());
+    };
+
     balance = balance.add(batch_balance);
-    all_unused = batch_utxoset.getAllUTXOs().length === 0;
+
     index = index + INDEX_RANGE;
+    all_unused = batch_utxoset.getAllUTXOs().length === 0;
   }
   return balance;
+}
+
+// Given a hdkey (at the change or non-change level), get the full UTXO set for
+// all addresses under that key. This also returns the addresses in path index
+// order, and a dictionary for getting path index from UTXOID. This dictionary
+// is used for determining which paths to sign via the ledger.
+async function prepare_for_transfer(avm, hdkey) {
+  // Return values
+  var utxoset = new AvaJS.UTXOSet();
+  var addresses = [];
+  var utxoid_to_path_index = {}; // A dictionary from UTXOID to path index
+
+  // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
+  // Only when INDEX_RANGE accounts have no UTXOs do we assume we are done
+  var index = 0;
+  var all_unused = false;
+  while (!all_unused) {
+    var address_to_index = {}; // A dictionary from AVAX address to path index
+    batch_addresses = [];
+    batch_pkhs = [];
+    for (var i = 0; i < INDEX_RANGE; i++) {
+      const child = hdkey.deriveChild(index + i);
+      const pkh = hdkey_to_pkh(child);
+      batch_pkhs.push(pkh);
+      const address = pkh_to_avax_address(pkh);
+      batch_addresses.push(address);
+      address_to_index[address] = index + i;
+    }
+    // Get UTXOs for this batch
+    const batch_utxoset = await avm.getUTXOs(batch_addresses).catch(log_error_and_exit);
+
+    // Update the UTXOID -> index dictionary
+    // TODO does this need to be UTXOID -> [index], or does UTXOID -> index suffice?
+    // i.e. are we clobbering existing indices?
+    for (const [pkh, utxos] of Object.entries(batch_utxoset.addressUTXOs)) {
+      const addr = pkh_to_avax_address(Buffer.from(pkh, 'hex'));
+      for (const utxoid of Object.keys(utxos)) {
+        utxoid_to_path_index[utxoid] = address_to_index[addr];
+      }
+    };
+
+    utxoset = utxoset.union(batch_utxoset);
+    addresses = addresses.concat(batch_addresses);
+
+    index = index + INDEX_RANGE;
+    all_unused = batch_utxoset.getAllUTXOs().length === 0;
+  }
+  return {
+    set: utxoset,
+    addresses: addresses,
+    utxoid_to_path_index: utxoid_to_path_index,
+  }
 }
 
 program
@@ -203,22 +269,29 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(unsignedTx) {
+async function sign_UnsignedTx(unsignedTx, utxo_id_to_path) {
   const txbuff = unsignedTx.toBuffer();
   const msg = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(baseTx, msg);
+  const sigs = await sign_BaseTx(baseTx, msg, utxo_id_to_path);
   return new AvaJS.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(baseTx, msg) {
+async function sign_BaseTx(baseTx, msg, utxo_id_to_path) {
+  // TODO maybe these should be moved out and passed in
+  const transport = await TransportNodeHid.open().catch(log_error_and_exit);
+  const ledger = new Ledger(transport);
+
   const sigs = [];
+  // For each tx input (sources of funds)
   for (let i = 0; i < baseTx.ins.length; i++) {
-    const cred = AvaJS.SelectCredentialClass(baseTx.ins[i].getInput().getCredentialID());
-    const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
+    const input = baseTx.ins[i];
+    const cred = AvaJS.SelectCredentialClass(input.getInput().getCredentialID());
+    const sigidxs = input.getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      const signval = await sign_AVMKeyPair(msg);
+      const path = utxo_id_to_path[input.getUTXOID()];
+      const signval = await sign_with_ledger(ledger, msg, path);
       const sig = new AvaJS.Signature();
       sig.fromBuffer(Buffer.from(signval, "hex"));
       cred.addSignature(sig);
@@ -228,32 +301,13 @@ async function sign_BaseTx(baseTx, msg) {
   return sigs;
 }
 
-/* Adapted from avm/keychain.ts for class AVMKeyPair */
-async function sign_AVMKeyPair(msg) {
-  const sigObj = await sign_bytes(msg);
-  //const recovery = Buffer.alloc(1);
-  //recovery.writeUInt8(sigObj.recoveryParam, 0);
-  //const r = Buffer.from(sigObj.r.toArray('be', 32)); // we have to skip native Buffer class, so this is the way
-  //const s = Buffer.from(sigObj.s.toArray('be', 32)); // we have to skip native Buffer class, so this is the way
-  //const result = Buffer.concat([r, s, recovery], 65);
-  //return result;
-  return sigObj;
-}
-
-// TODO Use the ledger signing function
-// TODO Remove the elliptic dependency
-async function sign_bytes(msg) {
-  const transport = await TransportNodeHid.open().catch(log_error_and_exit);
-  const ledger = new Ledger(transport);
+async function sign_with_ledger(ledger, hash, path) {
   // BIP44: m / purpose' / coin_type' / account' / change / address_index
-  // TODO pass the real path in
-  path = AVA_BIP32_PREFIX + "0'/0/0";
-  hash = msg;
-  console.log("Signing hash ", hash, " with path ", path);
-  const result = await ledger.signHash(path, msg).catch(log_error_and_exit);
-  console.log(result);
-  result2 = result.slice(64, -4);
-  console.log(result2);
+  const full_path = AVA_BIP32_PREFIX + "0'/" + path;
+  console.error("Signing hash", hash.toString('hex').toUpperCase(), "with path", full_path);
+  console.error("Please verify on your ledger device");
+  const result = await ledger.signHash(full_path, hash).catch(log_error_and_exit);
+  const result2 = result.slice(64, -4);
   return result2;
 }
 
@@ -271,22 +325,47 @@ program
   .command("transfer")
   .description("Transfer AVAX between accounts")
   .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
-  .requiredOption("--from <account>", "Account the funds will be taken from")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
 
-    const toAddress = options.to;
-    const fromAddress = options.from;
-    const changeAddress = await get_change_address(avm);
-    const amount = parse_amount(options.amount);
+    const root_ext_pubkey = get_extended_public_key();
+    const root_key = HDKey.fromExtendedKey(root_ext_pubkey);
 
-    const utxos = await avm.getUTXOs([fromAddress]).catch(log_error_and_exit);
+    console.error("Discovering accounts...");
+    const non_change_utxos = await prepare_for_transfer(avm, root_key.deriveChild(0));
+    const change_utxos = await prepare_for_transfer(avm, root_key.deriveChild(1));
+    const all_utxos = non_change_utxos.set.union(change_utxos.set);
+
+    // Build a dictionary from UTXOID to partial (change/index) path
+    var utxo_id_to_path = {};
+    for (const [utxoid, index] of Object.entries(change_utxos.utxoid_to_path_index)) {
+      utxo_id_to_path[utxoid] = "1/" + index;
+    }
+    for (const [utxoid, index] of Object.entries(non_change_utxos.utxoid_to_path_index)) {
+      utxo_id_to_path[utxoid] = "0/" + index;
+    }
+
+    const amount = parse_amount(options.amount);
+    const toAddress = options.to;
+    // We build the from addresses from all discovered change addresses,
+    // followed by all discovered non-change addresses. This matches the web
+    // wallet.
+    // buildBaseTx will filter down to the minimum requirement in the order of
+    // this array (and it is ordered by increasing path index).
+    const fromAddresses = change_utxos.addresses.concat(non_change_utxos.addresses);
+
+    console.error("Getting new change address...");
+    // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+    const changeAddress = await get_change_address(avm);
+
+    console.error("Building TX...");
     const unsignedTx = await
-      avm.buildBaseTx(utxos, amount, [toAddress], [fromAddress], [changeAddress], AVAX_ASSET_ID_SERIALIZED)
+      avm.buildBaseTx(all_utxos, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
       .catch(log_error_and_exit);
-    const signed = await sign_UnsignedTx(unsignedTx);
+    const signed = await sign_UnsignedTx(unsignedTx, utxo_id_to_path);
+    console.error("Issuing TX...");
     const txid = await avm.issueTx(signed);
     console.log(txid);
 });

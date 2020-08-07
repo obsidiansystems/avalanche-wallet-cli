@@ -58,7 +58,6 @@ program
     console.log(transport.deviceModel);
 });
 
-// TODO does not work on Ava ledger app
 program
   .command("get-wallet-id")
   .add_device_option()

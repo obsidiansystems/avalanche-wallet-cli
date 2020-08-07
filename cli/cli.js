@@ -122,24 +122,33 @@ async function get_extended_public_key(ledger, deriv_path) {
 }
 
 // Scan change addresses and find the first unused address (i.e. the first with no UTXOs)
-// Adapted from wallet code.
-// TODO this doesn't use the INDEX_RANGE thing, should it? Seems like it will reuse change addresses.
 async function get_change_address(avm, root_key, log = false) {
   const change_key = root_key.deriveChild(1); // 1 = change
 
-  var index = 0;
-  var foundAddress = null;
-  while (foundAddress === null) {
-    const key = change_key.deriveChild(index);
-    const address = hdkey_to_avax_address(key);
-    const utxos = await avm.getUTXOs([address]).catch(log_error_and_exit);
-    const is_unused = utxos.getAllUTXOs().length === 0;
-    if (log) console.error("Index", index, address, is_unused ? "Unused" : "Used");
-    if (is_unused) foundAddress = address;
-    index++;
-  }
+  var utxoset = new AvaJS.UTXOSet();
+  var addresses = [];
+  var pkhs = [];
 
-  return foundAddress;
+  await traverse_used_keys(avm, change_key, (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
+    utxoset = utxoset.union(batch_utxoset);
+    addresses = addresses.concat(batch_addresses);
+    pkhs = pkhs.concat(batch_pkhs);
+  });
+
+  // Go backwards through the generated addresses to find the last unused address
+  last_unused = null;
+  for (var i = addresses.length - 1; i >= 0; i--) {
+    const addr = addresses[i];
+    const pkh = pkhs[i].toString('hex');
+    const utxoids = utxoset.addressUTXOs[pkh];
+    if (utxoids === undefined) {
+      last_unused = addr;
+    } else {
+      break;
+    }
+  };
+
+  return last_unused;
 }
 
 function hdkey_to_pkh(hdkey) {
@@ -156,14 +165,12 @@ function hdkey_to_avax_address(hdkey) {
   return pkh_to_avax_address(hdkey_to_pkh(hdkey));
 }
 
-// Given a hdkey (at the change or non-change level), sum the UTXO balances
-// under that key.
-async function sum_child_balances(avm, hdkey, log_prefix = null) {
-  var balance = new BN(0);
-
+// Traverse children of a hdkey with the given function. Stops when at least
+// INDEX_RANGE accounts are "unused" (right now, this means they have no UTXOs)
+// TODO check TX history too to determine unused status
+async function traverse_used_keys(avm, hdkey, batched_function) {
   // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
   // Only when INDEX_RANGE accounts have no UTXOs do we assume we are done
-  // TODO this loop is duplicated in prepare_for_transfer, dedupe it
   var index = 0;
   var all_unused = false;
   while (!all_unused) {
@@ -180,6 +187,21 @@ async function sum_child_balances(avm, hdkey, log_prefix = null) {
     }
     // Get UTXOs for this batch
     const batch_utxoset = await avm.getUTXOs(batch_addresses).catch(log_error_and_exit);
+
+    // Run the batch function
+    batched_function(batch_utxoset, batch_pkhs, batch_addresses, address_to_index);
+
+    index = index + INDEX_RANGE;
+    all_unused = batch_utxoset.getAllUTXOs().length === 0;
+  }
+}
+
+// Given a hdkey (at the change or non-change level), sum the UTXO balances
+// under that key.
+async function sum_child_balances(avm, hdkey, log_prefix = null) {
+  var balance = new BN(0);
+
+  await traverse_used_keys(avm, hdkey, async (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
     // Total the balance for all PKHs
     const batch_balance = await batch_utxoset.getBalance(batch_pkhs, AVAX_ASSET_ID_SERIALIZED);
 
@@ -195,10 +217,8 @@ async function sum_child_balances(avm, hdkey, log_prefix = null) {
     };
 
     balance = balance.add(batch_balance);
+  });
 
-    index = index + INDEX_RANGE;
-    all_unused = batch_utxoset.getAllUTXOs().length === 0;
-  }
   return balance;
 }
 
@@ -212,25 +232,7 @@ async function prepare_for_transfer(avm, hdkey) {
   var addresses = [];
   var utxoid_to_path_index = {}; // A dictionary from UTXOID to path index
 
-  // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
-  // Only when INDEX_RANGE accounts have no UTXOs do we assume we are done
-  var index = 0;
-  var all_unused = false;
-  while (!all_unused) {
-    var address_to_index = {}; // A dictionary from AVAX address to path index
-    batch_addresses = [];
-    batch_pkhs = [];
-    for (var i = 0; i < INDEX_RANGE; i++) {
-      const child = hdkey.deriveChild(index + i);
-      const pkh = hdkey_to_pkh(child);
-      batch_pkhs.push(pkh);
-      const address = pkh_to_avax_address(pkh);
-      batch_addresses.push(address);
-      address_to_index[address] = index + i;
-    }
-    // Get UTXOs for this batch
-    const batch_utxoset = await avm.getUTXOs(batch_addresses).catch(log_error_and_exit);
-
+  await traverse_used_keys(avm, hdkey, (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
     // Update the UTXOID -> index dictionary
     // TODO does this need to be UTXOID -> [index], or does UTXOID -> index suffice?
     // i.e. are we clobbering existing indices?
@@ -243,10 +245,8 @@ async function prepare_for_transfer(avm, hdkey) {
 
     utxoset = utxoset.union(batch_utxoset);
     addresses = addresses.concat(batch_addresses);
+  });
 
-    index = index + INDEX_RANGE;
-    all_unused = batch_utxoset.getAllUTXOs().length === 0;
-  }
   return {
     set: utxoset,
     addresses: addresses,
@@ -271,6 +271,7 @@ program
     console.log(change_balance.add(non_change_balance).toString());
 });
 
+// TODO probably don't need to expose this?
 program
   .command("get-change-address")
   .description("Get the first unused change address")

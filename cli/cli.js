@@ -46,12 +46,14 @@ program.version("0.0.1");
 
 program
   .command("list-devices")
+  .description("List all Ledger devices currently available")
   .action(async () => {
   console.log(await TransportNodeHid.list());
 });
 
 program
   .command("get-device-model")
+  .description("Get the device model of the connected ledger")
   .add_device_option()
   .action(async (options) => {
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);

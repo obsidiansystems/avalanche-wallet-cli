@@ -7,7 +7,6 @@
 The repo is currently set up for local dev of ledgerjs.
 
 ```
-$ git submodule update --recursive --init
 $ nix-shell
 [nix-shell:~]$ yarn install
 ```

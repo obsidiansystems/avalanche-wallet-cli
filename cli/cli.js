@@ -258,6 +258,7 @@ program
   .option("--accounts", "Display a breakdown for individual accounts")
   .description("Get the total balance of all accounts from this wallet")
   .add_node_option()
+  .add_device_option()
   .action(async options => {
     const ava = ava_js_with_node(options.node);
     const avm = ava.AVM();
@@ -274,6 +275,7 @@ program
   .command("get-new-receive-address")
   .description("Get a fresh address for receiving funds")
   .add_node_option()
+  .add_device_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
@@ -342,6 +344,7 @@ program
   .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
+  .add_device_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);

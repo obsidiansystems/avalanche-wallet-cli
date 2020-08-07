@@ -102,17 +102,6 @@ program
 });
 
 
-program
-  .command("get-balance <address>")
-  .description("Get the AVAX balance of a particular address")
-  .add_node_option()
-  .action(async (address, options) => {
-    const ava = ava_js_with_node(options.node);
-    const avm = ava.AVM();
-    let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
-    console.log(result.toString(10, 0));
-});
-
 async function get_extended_public_key(ledger, deriv_path) {
   console.error("Please accept on your ledger device");
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
@@ -165,11 +154,11 @@ function hdkey_to_avax_address(hdkey) {
 }
 
 // Traverse children of a hdkey with the given function. Stops when at least
-// INDEX_RANGE accounts are "unused" (right now, this means they have no UTXOs)
+// INDEX_RANGE addresses are "unused" (right now, this means they have no UTXOs)
 // TODO check TX history too to determine unused status
 async function traverse_used_keys(avm, hdkey, batched_function) {
   // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
-  // Only when INDEX_RANGE accounts have no UTXOs do we assume we are done
+  // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
   var index = 0;
   var all_unused = false;
   while (!all_unused) {
@@ -254,21 +243,27 @@ async function prepare_for_transfer(avm, hdkey) {
 }
 
 program
-  .command("get-wallet-balance")
-  .option("--accounts", "Display a breakdown for individual accounts")
-  .description("Get the total balance of all accounts from this wallet")
+  .command("get-balance [address]")
+  .option("--list-addresses", "Display a breakdown for individual addresses")
+  .description("Get the AVAX balance of this wallet or a particular address")
   .add_node_option()
   .add_device_option()
-  .action(async options => {
+  .action(async (address, options) => {
     const ava = ava_js_with_node(options.node);
     const avm = ava.AVM();
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
 
-    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
-    const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.accounts ? "0/" : null);
-    const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.accounts ? "1/" : null);
-    console.log(change_balance.add(non_change_balance).toString());
+    if (address === undefined) {
+      const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+      const ledger = new Ledger(transport);
+
+      const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
+      const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.listAddresses ? "0/" : null);
+      const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.listAddresses ? "1/" : null);
+      console.log(change_balance.add(non_change_balance).toString());
+    } else {
+      let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
+      console.log(result.toString(10, 0));
+    }
 });
 
 program
@@ -340,7 +335,7 @@ function parse_amount(str) {
 
 program
   .command("transfer")
-  .description("Transfer AVAX between accounts")
+  .description("Transfer AVAX between addresses")
   .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
@@ -352,7 +347,7 @@ program
 
     const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
 
-    console.error("Discovering accounts...");
+    console.error("Discovering addresses...");
     const non_change_key = root_key.deriveChild(0);
     const change_key = root_key.deriveChild(1);
     const non_change_utxos = await prepare_for_transfer(avm, non_change_key);

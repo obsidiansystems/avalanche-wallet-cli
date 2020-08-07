@@ -142,7 +142,7 @@ function hdkey_to_avax_address(hdkey) {
 
 // Given a hdkey (at the change or non-change level), sum the UTXO balances
 // under that key.
-async function sum_child_balances(avm, hdkey) {
+async function sum_child_balances(avm, hdkey, log_prefix = null) {
   var balance = new BN(0);
 
   // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
@@ -151,6 +151,7 @@ async function sum_child_balances(avm, hdkey) {
   var index = 0;
   var all_unused = false;
   while (!all_unused) {
+    var address_to_index = {}; // A dictionary from AVAX address to path index
     batch_addresses = [];
     batch_pkhs = [];
     for (var i = 0; i < INDEX_RANGE; i++) {
@@ -159,6 +160,7 @@ async function sum_child_balances(avm, hdkey) {
       batch_pkhs.push(pkh);
       const address = pkh_to_avax_address(pkh);
       batch_addresses.push(address);
+      address_to_index[address] = index + i;
     }
     // Get UTXOs for this batch
     const batch_utxoset = await avm.getUTXOs(batch_addresses).catch(log_error_and_exit);
@@ -170,7 +172,10 @@ async function sum_child_balances(avm, hdkey) {
       for (const utxoid of Object.keys(utxoids)) {
         bal = bal.add(batch_utxoset.utxos[utxoid].getOutput().getAmount());
       }
-      console.error(pkh_to_avax_address(Buffer.from(pkh, 'hex')), bal.toString());
+      if (log_prefix !== null) {
+        const addr = pkh_to_avax_address(Buffer.from(pkh, 'hex'));
+        console.error(log_prefix + address_to_index[addr], addr, bal.toString());
+      }
     };
 
     balance = balance.add(batch_balance);
@@ -235,6 +240,7 @@ async function prepare_for_transfer(avm, hdkey) {
 
 program
   .command("get-wallet-balance")
+  .option("--accounts", "Display a breakdown for individual accounts")
   .description("Get the total balance of all accounts from this wallet")
   .add_node_option()
   .action(async options => {
@@ -242,8 +248,8 @@ program
     const avm = ava.AVM();
     const extended_public_key = get_extended_public_key();
     const root_key = HDKey.fromExtendedKey(extended_public_key);
-    const change_balance = await sum_child_balances(avm, root_key.deriveChild(0));
-    const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1));
+    const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.accounts ? "0/" : null);
+    const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.accounts ? "1/" : null);
     console.log(change_balance.add(non_change_balance).toString());
 });
 

@@ -250,7 +250,7 @@ program
       const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
       const ledger = new Ledger(transport);
 
-      const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
       const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.listAddresses ? "0/" : null);
       const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.listAddresses ? "1/" : null);
       console.log(change_balance.add(non_change_balance).toString());
@@ -269,7 +269,7 @@ program
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
-    const non_change_key = await get_extended_public_key(ledger, "m/44'/9000'/0'/0");
+    const non_change_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'/0");
     let result = await get_first_unused_address(avm, non_change_key, true);
     console.log(result);
 });
@@ -339,7 +339,7 @@ program
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
 
-    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
+    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
 
     console.error("Discovering addresses...");
     const non_change_key = root_key.deriveChild(0);

@@ -114,6 +114,7 @@ program
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
+  console.error("Please accept on your ledger device");
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
   hdw = new HDKey();
   hdw.publicKey = Buffer.from(extended_public_key.public_key,"hex");

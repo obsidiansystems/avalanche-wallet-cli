@@ -88,6 +88,21 @@ program
 });
 
 program
+  .command("get-wallet-extpubkey <path>")
+  .description("get the public key of a derivation path. <path> should be 'account/change/address_index'")
+  .add_device_option()
+  .action(async (path, options) => {
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ledger = new Ledger(transport);
+    // BIP32: m / purpose' / coin_type' / account' / change / address_index
+    path = "m/44'/9000'/" + path
+    console.log("Getting public key for path ", path);
+    const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
+    console.log(result);
+});
+
+
+program
   .command("get-balance <address>")
   .description("Get the AVAX balance of a particular address")
   .add_node_option()
@@ -98,18 +113,19 @@ program
     console.log(result.toString(10, 0));
 });
 
-// TODO get this from the ledger using the given account
-function get_extended_public_key() {
-  return "xpub6C6ML72NdxwLnu2hW85mGhX3oTsfFW12KAHP2Q3aK13tYY7c4TN272qnYQKmju17AwSqr982Su2pVLmRrkRnGP3C5BDbZrVje8Eq7SxzkfP";
+async function get_extended_public_key(ledger, deriv_path) {
+  extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
+  hdw = new HDKey();
+  hdw.publicKey = Buffer.from(extended_public_key.public_key,"hex");
+  hdw.chainCode = extended_public_key.chain_code;
+  return hdw
 }
 
 // Scan change addresses and find the first unused address (i.e. the first with no UTXOs)
 // Adapted from wallet code.
 // TODO this doesn't use the INDEX_RANGE thing, should it? Seems like it will reuse change addresses.
-async function get_change_address(avm, log = false) {
-  const extended_public_key = get_extended_public_key();
-  const root_key = HDKey.fromExtendedKey(extended_public_key);
-        change_key = root_key.deriveChild(1); // 1 = change
+async function get_change_address(avm, root_key, log = false) {
+  const change_key = root_key.deriveChild(1); // 1 = change
 
   var index = 0;
   var foundAddress = null;
@@ -246,8 +262,10 @@ program
   .action(async options => {
     const ava = ava_js_with_node(options.node);
     const avm = ava.AVM();
-    const extended_public_key = get_extended_public_key();
-    const root_key = HDKey.fromExtendedKey(extended_public_key);
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ledger = new Ledger(transport);
+
+    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
     const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.accounts ? "0/" : null);
     const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.accounts ? "1/" : null);
     console.log(change_balance.add(non_change_balance).toString());
@@ -259,7 +277,10 @@ program
   .add_node_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
-    let result = await get_change_address(avm, true);
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ledger = new Ledger(transport);
+    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
+    let result = await get_change_address(avm, root_key, true);
     console.log(result);
 });
 
@@ -334,9 +355,10 @@ program
   .add_node_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ledger = new Ledger(transport);
 
-    const root_ext_pubkey = get_extended_public_key();
-    const root_key = HDKey.fromExtendedKey(root_ext_pubkey);
+    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
 
     console.error("Discovering accounts...");
     const non_change_utxos = await prepare_for_transfer(avm, root_key.deriveChild(0));
@@ -363,7 +385,7 @@ program
 
     console.error("Getting new change address...");
     // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-    const changeAddress = await get_change_address(avm);
+    const changeAddress = await get_change_address(avm, root_key);
 
     console.error("Building TX...");
     const unsignedTx = await

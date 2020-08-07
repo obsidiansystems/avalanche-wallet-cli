@@ -114,6 +114,7 @@ program
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
+  console.error("Please accept on your ledger device");
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
   hdw = new HDKey();
   hdw.publicKey = Buffer.from(extended_public_key.public_key,"hex");
@@ -121,15 +122,13 @@ async function get_extended_public_key(ledger, deriv_path) {
   return hdw
 }
 
-// Scan change addresses and find the first unused address (i.e. the first with no UTXOs)
-async function get_change_address(avm, root_key, log = false) {
-  const change_key = root_key.deriveChild(1); // 1 = change
-
+// Scan addresses and find the first unused address (i.e. the first with no UTXOs)
+async function get_first_unused_address(avm, hdkey, log = false) {
   var utxoset = new AvaJS.UTXOSet();
   var addresses = [];
   var pkhs = [];
 
-  await traverse_used_keys(avm, change_key, (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
+  await traverse_used_keys(avm, hdkey, (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
     utxoset = utxoset.union(batch_utxoset);
     addresses = addresses.concat(batch_addresses);
     pkhs = pkhs.concat(batch_pkhs);
@@ -280,8 +279,21 @@ program
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
-    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
-    let result = await get_change_address(avm, root_key, true);
+    const change_key = await get_extended_public_key(ledger, "m/44'/9000'/0'/1");
+    let result = await get_first_unused_address(avm, change_key, true);
+    console.log(result);
+});
+
+program
+  .command("get-new-receive-address")
+  .description("Get a fresh address for receiving funds")
+  .add_node_option()
+  .action(async options => {
+    const avm = ava_js_with_node(options.node).AVM();
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ledger = new Ledger(transport);
+    const non_change_key = await get_extended_public_key(ledger, "m/44'/9000'/0'/0");
+    let result = await get_first_unused_address(avm, non_change_key, true);
     console.log(result);
 });
 
@@ -362,8 +374,10 @@ program
     const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
 
     console.error("Discovering accounts...");
-    const non_change_utxos = await prepare_for_transfer(avm, root_key.deriveChild(0));
-    const change_utxos = await prepare_for_transfer(avm, root_key.deriveChild(1));
+    const non_change_key = root_key.deriveChild(0);
+    const change_key = root_key.deriveChild(1);
+    const non_change_utxos = await prepare_for_transfer(avm, non_change_key);
+    const change_utxos = await prepare_for_transfer(avm, change_key);
     const all_utxos = non_change_utxos.set.union(change_utxos.set);
 
     // Build a dictionary from UTXOID to partial (change/index) path
@@ -386,7 +400,7 @@ program
 
     console.error("Getting new change address...");
     // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-    const changeAddress = await get_change_address(avm, root_key);
+    const changeAddress = await get_first_unused_address(avm, change_key);
 
     console.error("Building TX...");
     const unsignedTx = await

@@ -270,20 +270,6 @@ program
     console.log(change_balance.add(non_change_balance).toString());
 });
 
-// TODO probably don't need to expose this?
-program
-  .command("get-change-address")
-  .description("Get the first unused change address")
-  .add_node_option()
-  .action(async options => {
-    const avm = ava_js_with_node(options.node).AVM();
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    const change_key = await get_extended_public_key(ledger, "m/44'/9000'/0'/1");
-    let result = await get_first_unused_address(avm, change_key, true);
-    console.log(result);
-});
-
 program
   .command("get-new-receive-address")
   .description("Get a fresh address for receiving funds")

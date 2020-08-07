@@ -69,7 +69,8 @@ program
 });
 
 program
-  .command("get-wallet-pubkey <path>")
+  .command("get-public-key <path>")
+  .option("--extended", "Get the extended public key")
   .description("get the public key of a derivation path. <path> should be 'account/change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
@@ -77,30 +78,21 @@ program
     const ledger = new Ledger(transport);
     // BIP32: m / purpose' / coin_type' / account' / change / address_index
     path = AVA_BIP32_PREFIX + path
-    console.log("Getting public key for path ", path);
-    const result = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-    console.log(result);
-    pubk = Buffer.from(result,'hex');
-    KC = new AvaJS.AVMKeyPair();
-    pubk_hash = KC.addressFromPublicKey(pubk);
-    address = BinTools.avaSerialize(pubk_hash);
-    console.log(address);
+    if (options.extended) {
+      console.error("Getting extended public key for path", path);
+      const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
+      console.log(result);
+    } else {
+      console.error("Getting public key for path ", path);
+      const result = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
+      console.log(result);
+      pubk = Buffer.from(result,'hex');
+      KC = new AvaJS.AVMKeyPair();
+      pubk_hash = KC.addressFromPublicKey(pubk);
+      address = BinTools.avaSerialize(pubk_hash);
+      console.log(address);
+    }
 });
-
-program
-  .command("get-wallet-extpubkey <path>")
-  .description("get the public key of a derivation path. <path> should be 'account/change/address_index'")
-  .add_device_option()
-  .action(async (path, options) => {
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    // BIP32: m / purpose' / coin_type' / account' / change / address_index
-    path = "m/44'/9000'/" + path
-    console.log("Getting public key for path ", path);
-    const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
-    console.log(result);
-});
-
 
 async function get_extended_public_key(ledger, deriv_path) {
   console.error("Please accept on your ledger device");

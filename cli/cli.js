@@ -297,16 +297,6 @@ program
     console.log(result);
 });
 
-program
-  .command("get-utxos <address>")
-  .add_node_option()
-  .action(async (address, options) => {
-    const ava = ava_js_with_node(options.node);
-    const avm = ava.AVM();
-    let result = await avm.getUTXOs([address]).catch(log_error_and_exit);
-    console.log(result.getAllUTXOs());
-});
-
 /* Adapted from avm/tx.ts for class UnsignedTx */
 async function sign_UnsignedTx(unsignedTx, utxo_id_to_path) {
   const txbuff = unsignedTx.toBuffer();

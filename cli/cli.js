@@ -18,6 +18,7 @@ const AVAX_ASSET_ID = "AVA"; // TODO changes to AVAX in next release
 const AVAX_ASSET_ID_SERIALIZED = BinTools.b58ToBuffer("9xc4gcJYYg1zfLeeEFQDLx4HnCk81yUmV1DAUc6VfJFj"); // TODO is this correct? I got this from my account's UTXOSet. I have no idea how it is created.
 const AVA_BIP32_PREFIX = "m/44'/9000'/"
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
+const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
 
 // TODO replace this with something better
 function log_error_and_exit(err) {
@@ -155,7 +156,7 @@ async function traverse_used_keys(avm, hdkey, batched_function) {
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
   var index = 0;
   var all_unused = false;
-  while (!all_unused) {
+  while (!all_unused || index < SCAN_SIZE) {
     var address_to_index = {}; // A dictionary from AVAX address to path index
     batch_addresses = [];
     batch_pkhs = [];

@@ -46,12 +46,14 @@ program.version("0.0.1");
 
 program
   .command("list-devices")
+  .description("List all Ledger devices currently available")
   .action(async () => {
   console.log(await TransportNodeHid.list());
 });
 
 program
   .command("get-device-model")
+  .description("Get the device model of the connected ledger")
   .add_device_option()
   .action(async (options) => {
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
@@ -69,7 +71,8 @@ program
 });
 
 program
-  .command("get-wallet-pubkey <path>")
+  .command("get-public-key <path>")
+  .option("--extended", "Get the extended public key")
   .description("get the public key of a derivation path. <path> should be 'account/change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
@@ -77,40 +80,20 @@ program
     const ledger = new Ledger(transport);
     // BIP32: m / purpose' / coin_type' / account' / change / address_index
     path = AVA_BIP32_PREFIX + path
-    console.log("Getting public key for path ", path);
-    const result = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-    console.log(result);
-    pubk = Buffer.from(result,'hex');
-    KC = new AvaJS.AVMKeyPair();
-    pubk_hash = KC.addressFromPublicKey(pubk);
-    address = BinTools.avaSerialize(pubk_hash);
-    console.log(address);
-});
-
-program
-  .command("get-wallet-extpubkey <path>")
-  .description("get the public key of a derivation path. <path> should be 'account/change/address_index'")
-  .add_device_option()
-  .action(async (path, options) => {
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    // BIP32: m / purpose' / coin_type' / account' / change / address_index
-    path = "m/44'/9000'/" + path
-    console.log("Getting public key for path ", path);
-    const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
-    console.log(result);
-});
-
-
-program
-  .command("get-balance <address>")
-  .description("Get the AVAX balance of a particular address")
-  .add_node_option()
-  .action(async (address, options) => {
-    const ava = ava_js_with_node(options.node);
-    const avm = ava.AVM();
-    let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
-    console.log(result.toString(10, 0));
+    if (options.extended) {
+      console.error("Getting extended public key for path", path);
+      const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
+      console.log(result);
+    } else {
+      console.error("Getting public key for path ", path);
+      const result = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
+      console.log(result);
+      pubk = Buffer.from(result,'hex');
+      KC = new AvaJS.AVMKeyPair();
+      pubk_hash = KC.addressFromPublicKey(pubk);
+      address = BinTools.avaSerialize(pubk_hash);
+      console.log(address);
+    }
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
@@ -165,11 +148,11 @@ function hdkey_to_avax_address(hdkey) {
 }
 
 // Traverse children of a hdkey with the given function. Stops when at least
-// INDEX_RANGE accounts are "unused" (right now, this means they have no UTXOs)
+// INDEX_RANGE addresses are "unused" (right now, this means they have no UTXOs)
 // TODO check TX history too to determine unused status
 async function traverse_used_keys(avm, hdkey, batched_function) {
   // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
-  // Only when INDEX_RANGE accounts have no UTXOs do we assume we are done
+  // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
   var index = 0;
   var all_unused = false;
   while (!all_unused) {
@@ -254,57 +237,41 @@ async function prepare_for_transfer(avm, hdkey) {
 }
 
 program
-  .command("get-wallet-balance")
-  .option("--accounts", "Display a breakdown for individual accounts")
-  .description("Get the total balance of all accounts from this wallet")
+  .command("get-balance [address]")
+  .option("--list-addresses", "Display a breakdown for individual addresses")
+  .description("Get the AVAX balance of this wallet or a particular address")
   .add_node_option()
-  .action(async options => {
+  .add_device_option()
+  .action(async (address, options) => {
     const ava = ava_js_with_node(options.node);
     const avm = ava.AVM();
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
 
-    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
-    const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.accounts ? "0/" : null);
-    const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.accounts ? "1/" : null);
-    console.log(change_balance.add(non_change_balance).toString());
-});
+    if (address === undefined) {
+      const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+      const ledger = new Ledger(transport);
 
-// TODO probably don't need to expose this?
-program
-  .command("get-change-address")
-  .description("Get the first unused change address")
-  .add_node_option()
-  .action(async options => {
-    const avm = ava_js_with_node(options.node).AVM();
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    const change_key = await get_extended_public_key(ledger, "m/44'/9000'/0'/1");
-    let result = await get_first_unused_address(avm, change_key, true);
-    console.log(result);
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
+      const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.listAddresses ? "0/" : null);
+      const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.listAddresses ? "1/" : null);
+      console.log(change_balance.add(non_change_balance).toString());
+    } else {
+      let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
+      console.log(result.toString(10, 0));
+    }
 });
 
 program
   .command("get-new-receive-address")
   .description("Get a fresh address for receiving funds")
   .add_node_option()
+  .add_device_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
-    const non_change_key = await get_extended_public_key(ledger, "m/44'/9000'/0'/0");
+    const non_change_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'/0");
     let result = await get_first_unused_address(avm, non_change_key, true);
     console.log(result);
-});
-
-program
-  .command("get-utxos <address>")
-  .add_node_option()
-  .action(async (address, options) => {
-    const ava = ava_js_with_node(options.node);
-    const avm = ava.AVM();
-    let result = await avm.getUTXOs([address]).catch(log_error_and_exit);
-    console.log(result.getAllUTXOs());
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
@@ -362,18 +329,19 @@ function parse_amount(str) {
 
 program
   .command("transfer")
-  .description("Transfer AVAX between accounts")
+  .description("Transfer AVAX between addresses")
   .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
+  .add_device_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
 
-    const root_key = await get_extended_public_key(ledger, "m/44'/9000'/0'");
+    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
 
-    console.error("Discovering accounts...");
+    console.error("Discovering addresses...");
     const non_change_key = root_key.deriveChild(0);
     const change_key = root_key.deriveChild(1);
     const non_change_utxos = await prepare_for_transfer(avm, non_change_key);

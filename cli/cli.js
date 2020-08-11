@@ -87,9 +87,7 @@ program
       console.log(result);
     } else {
       console.error("Getting public key for path ", path);
-      const result = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-      console.log(result);
-      pubk = Buffer.from(result,'hex');
+      const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
       KC = new AvaJS.AVMKeyPair();
       pubk_hash = KC.addressFromPublicKey(pubk);
       address = BinTools.avaSerialize(pubk_hash);
@@ -101,7 +99,7 @@ async function get_extended_public_key(ledger, deriv_path) {
   console.error("Please accept on your ledger device");
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
   hdw = new HDKey();
-  hdw.publicKey = Buffer.from(extended_public_key.public_key,"hex");
+  hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
   return hdw
 }
@@ -299,14 +297,14 @@ program
 /* Adapted from avm/tx.ts for class UnsignedTx */
 async function sign_UnsignedTx(unsignedTx, utxo_id_to_path) {
   const txbuff = unsignedTx.toBuffer();
-  const msg = Buffer.from(createHash('sha256').update(txbuff).digest());
+  const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(baseTx, msg, utxo_id_to_path);
+  const sigs = await sign_BaseTx(baseTx, hash, utxo_id_to_path);
   return new AvaJS.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(baseTx, msg, utxo_id_to_path) {
+async function sign_BaseTx(baseTx, hash, utxo_id_to_path) {
   // TODO maybe these should be moved out and passed in
   const transport = await TransportNodeHid.open().catch(log_error_and_exit);
   const ledger = new Ledger(transport);
@@ -319,9 +317,9 @@ async function sign_BaseTx(baseTx, msg, utxo_id_to_path) {
     const sigidxs = input.getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
       const path = utxo_id_to_path[input.getUTXOID()];
-      const signval = await sign_with_ledger(ledger, msg, path);
+      const result = await sign_with_ledger(ledger, hash, path);
       const sig = new AvaJS.Signature();
-      sig.fromBuffer(Buffer.from(signval, "hex"));
+      sig.fromBuffer(result.signature);
       cred.addSignature(sig);
     }
     sigs.push(cred);
@@ -334,9 +332,7 @@ async function sign_with_ledger(ledger, hash, path) {
   const full_path = AVA_BIP32_PREFIX + "0'/" + path;
   console.error("Signing hash", hash.toString('hex').toUpperCase(), "with path", full_path);
   console.error("Please verify on your ledger device");
-  const result = await ledger.signHash(full_path, hash).catch(log_error_and_exit);
-  const result2 = result.slice(64, -4);
-  return result2;
+  return await ledger.signHash(full_path, hash).catch(log_error_and_exit);
 }
 
 function parse_amount(str) {

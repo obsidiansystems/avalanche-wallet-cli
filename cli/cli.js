@@ -80,7 +80,7 @@ program
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
     // BIP32: m / purpose' / coin_type' / account' / change / address_index
-    path = AVA_BIP32_PREFIX + path
+    path = AVA_BIP32_PREFIX + "/" + path
     if (options.extended) {
       console.error("Getting extended public key for path", path);
       const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);

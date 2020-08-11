@@ -22,7 +22,11 @@ const SCAN_SIZE = 70; // the total number of utxos to look at initially to calcu
 
 // TODO replace this with something better
 function log_error_and_exit(err) {
-  console.error(err.message);
+  if (err.message === undefined) {
+    console.error(err);
+  } else {
+    console.error(err.message);
+  }
   process.exit(1);
 }
 

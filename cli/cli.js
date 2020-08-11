@@ -51,9 +51,20 @@ program.version("0.0.1");
 
 program
   .command("list-devices")
-  .description("List all Ledger devices currently available")
+  .description("List all connected Ledger devices")
   .action(async () => {
   console.log(await TransportNodeHid.list());
+});
+
+program
+  .command("get-app-details")
+  .description("Get details about the running Ledger app")
+  .add_device_option()
+  .action(async (options) => {
+    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
+    const ledger = new Ledger(transport);
+    const appDetails = await ledger.getAppConfiguration().catch(log_error_and_exit);
+    console.log(appDetails.name + " " + appDetails.version + " (commit " + appDetails.commit + ")")
 });
 
 program

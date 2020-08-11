@@ -111,21 +111,29 @@ async function get_first_unused_address(avm, hdkey, log = false) {
   var utxoset = new AvaJS.UTXOSet();
   var addresses = [];
   var pkhs = [];
+  var change_addresses = [];
+  var change_pkhs = [];
 
-  await traverse_used_keys(avm, hdkey, (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
-    utxoset = utxoset.union(batch_utxoset);
-    addresses = addresses.concat(batch_addresses);
-    pkhs = pkhs.concat(batch_pkhs);
+  await traverse_used_keys(avm, hdkey, batch => {
+    utxoset = utxoset.union(batch.utxoset);
+    addresses = addresses.concat(batch.non_change.addresses);
+    pkhs = pkhs.concat(batch.non_change.pkhs);
+    change_addresses = change_addresses.concat(batch.change.addresses);
+    change_pkhs = change_pkhs.concat(batch.change.pkhs);
   });
 
   // Go backwards through the generated addresses to find the last unused address
   last_unused = null;
   for (var i = addresses.length - 1; i >= 0; i--) {
-    const addr = addresses[i];
     const pkh = pkhs[i].toString('hex');
     const utxoids = utxoset.addressUTXOs[pkh];
-    if (utxoids === undefined) {
-      last_unused = addr;
+    const change_pkh = change_pkhs[i].toString('hex');
+    const change_utxoids = utxoset.addressUTXOs[change_pkh];
+    if (utxoids === undefined && change_utxoids === undefined) {
+      last_unused = {
+        non_change: addresses[i],
+        change: change_addresses[i],
+      };
     } else {
       break;
     }
@@ -157,49 +165,56 @@ async function traverse_used_keys(avm, hdkey, batched_function) {
   var index = 0;
   var all_unused = false;
   while (!all_unused || index < SCAN_SIZE) {
-    var address_to_index = {}; // A dictionary from AVAX address to path index
-    batch_addresses = [];
-    batch_pkhs = [];
+    const batch = {
+      address_to_path: {}, // A dictionary from AVAX address to path (change/address)
+      non_change: { addresses: [], pkhs: []},
+      change: { addresses: [], pkhs: []},
+    };
     for (var i = 0; i < INDEX_RANGE; i++) {
-      const child = hdkey.deriveChild(index + i);
+      const child = hdkey.deriveChild(0).deriveChild(index + i);
+      const change_child = hdkey.deriveChild(1).deriveChild(index + i);
       const pkh = hdkey_to_pkh(child);
-      batch_pkhs.push(pkh);
+      const change_pkh = hdkey_to_pkh(change_child);
+      batch.non_change.pkhs.push(pkh);
+      batch.change.pkhs.push(change_pkh);
       const address = pkh_to_avax_address(pkh);
-      batch_addresses.push(address);
-      address_to_index[address] = index + i;
+      const change_address = pkh_to_avax_address(change_pkh);
+      batch.non_change.addresses.push(address);
+      batch.change.addresses.push(change_address);
+      batch.address_to_path[address] = "0/" + (index + i);
+      batch.address_to_path[change_address] = "1/" + (index + i);
     }
     // Get UTXOs for this batch
-    const batch_utxoset = await avm.getUTXOs(batch_addresses).catch(log_error_and_exit);
+    batch.utxoset = await
+      avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses))
+      .catch(log_error_and_exit);
 
     // Run the batch function
-    batched_function(batch_utxoset, batch_pkhs, batch_addresses, address_to_index);
+    batched_function(batch);
 
     index = index + INDEX_RANGE;
-    all_unused = batch_utxoset.getAllUTXOs().length === 0;
+    all_unused = batch.utxoset.getAllUTXOs().length === 0;
   }
 }
 
-// Given a hdkey (at the change or non-change level), sum the UTXO balances
+// Given a hdkey (at the account level), sum the UTXO balances
 // under that key.
-async function sum_child_balances(avm, hdkey, log_prefix = null) {
+async function sum_child_balances(avm, hdkey, log = false) {
   var balance = new BN(0);
 
-  await traverse_used_keys(avm, hdkey, async (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
+  await traverse_used_keys(avm, hdkey, async (batch) => {
     // Total the balance for all PKHs
-    const batch_balance = await batch_utxoset.getBalance(batch_pkhs, AVAX_ASSET_ID_SERIALIZED);
-
-    for (const [pkh, utxoids] of Object.entries(batch_utxoset.addressUTXOs)) {
+    for (const [pkh, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
       var bal = new BN(0);
       for (const utxoid of Object.keys(utxoids)) {
-        bal = bal.add(batch_utxoset.utxos[utxoid].getOutput().getAmount());
+        bal = bal.add(batch.utxoset.utxos[utxoid].getOutput().getAmount());
       }
-      if (log_prefix !== null) {
+      if (log) {
         const addr = pkh_to_avax_address(Buffer.from(pkh, 'hex'));
-        console.error(log_prefix + address_to_index[addr], addr, bal.toString());
+        console.error(batch.address_to_path[addr], addr, bal.toString());
       }
+      balance = balance.add(bal);
     };
-
-    balance = balance.add(batch_balance);
   });
 
   return balance;
@@ -213,27 +228,34 @@ async function prepare_for_transfer(avm, hdkey) {
   // Return values
   var utxoset = new AvaJS.UTXOSet();
   var addresses = [];
-  var utxoid_to_path_index = {}; // A dictionary from UTXOID to path index
+  var change_addresses = [];
+  var utxoid_to_path = {}; // A dictionary from UTXOID to path (change/address)
 
-  await traverse_used_keys(avm, hdkey, (batch_utxoset, batch_pkhs, batch_addresses, address_to_index) => {
+  await traverse_used_keys(avm, hdkey, batch => {
     // Update the UTXOID -> index dictionary
     // TODO does this need to be UTXOID -> [index], or does UTXOID -> index suffice?
     // i.e. are we clobbering existing indices?
-    for (const [pkh, utxos] of Object.entries(batch_utxoset.addressUTXOs)) {
+    for (const [pkh, utxos] of Object.entries(batch.utxoset.addressUTXOs)) {
       const addr = pkh_to_avax_address(Buffer.from(pkh, 'hex'));
       for (const utxoid of Object.keys(utxos)) {
-        utxoid_to_path_index[utxoid] = address_to_index[addr];
+        utxoid_to_path[utxoid] = batch.address_to_path[addr];
       }
     };
 
-    utxoset = utxoset.union(batch_utxoset);
-    addresses = addresses.concat(batch_addresses);
+    utxoset = utxoset.union(batch.utxoset);
+    addresses = addresses.concat(batch.non_change.addresses);
+    change_addresses = change_addresses.concat(batch.change.addresses);
   });
 
   return {
-    set: utxoset,
-    addresses: addresses,
-    utxoid_to_path_index: utxoid_to_path_index,
+    utxoset: utxoset,
+    // We build the from addresses from all discovered change addresses,
+    // followed by all discovered non-change addresses. This matches the web
+    // wallet.
+    // buildBaseTx will filter down to the minimum requirement in the order of
+    // this array (and it is ordered by increasing path index).
+    addresses: change_addresses.concat(addresses),
+    utxoid_to_path: utxoid_to_path,
   }
 }
 
@@ -252,9 +274,8 @@ program
       const ledger = new Ledger(transport);
 
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
-      const change_balance = await sum_child_balances(avm, root_key.deriveChild(0), options.listAddresses ? "0/" : null);
-      const non_change_balance = await sum_child_balances(avm, root_key.deriveChild(1), options.listAddresses ? "1/" : null);
-      console.log(change_balance.add(non_change_balance).toString());
+      const balance = await sum_child_balances(avm, root_key, options.listAddresses);
+      console.log(balance.toString());
     } else {
       let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
       console.log(result.toString(10, 0));
@@ -270,9 +291,9 @@ program
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
-    const non_change_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'/0");
-    let result = await get_first_unused_address(avm, non_change_key, true);
-    console.log(result);
+    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
+    let result = await get_first_unused_address(avm, root_key, true);
+    console.log(result.non_change);
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
@@ -345,37 +366,21 @@ program
     console.error("Discovering addresses...");
     const non_change_key = root_key.deriveChild(0);
     const change_key = root_key.deriveChild(1);
-    const non_change_utxos = await prepare_for_transfer(avm, non_change_key);
-    const change_utxos = await prepare_for_transfer(avm, change_key);
-    const all_utxos = non_change_utxos.set.union(change_utxos.set);
-
-    // Build a dictionary from UTXOID to partial (change/index) path
-    var utxo_id_to_path = {};
-    for (const [utxoid, index] of Object.entries(change_utxos.utxoid_to_path_index)) {
-      utxo_id_to_path[utxoid] = "1/" + index;
-    }
-    for (const [utxoid, index] of Object.entries(non_change_utxos.utxoid_to_path_index)) {
-      utxo_id_to_path[utxoid] = "0/" + index;
-    }
+    const prepared = await prepare_for_transfer(avm, root_key);
 
     const amount = parse_amount(options.amount);
     const toAddress = options.to;
-    // We build the from addresses from all discovered change addresses,
-    // followed by all discovered non-change addresses. This matches the web
-    // wallet.
-    // buildBaseTx will filter down to the minimum requirement in the order of
-    // this array (and it is ordered by increasing path index).
-    const fromAddresses = change_utxos.addresses.concat(non_change_utxos.addresses);
+    const fromAddresses = prepared.addresses;
 
     console.error("Getting new change address...");
     // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-    const changeAddress = await get_first_unused_address(avm, change_key);
+    const changeAddress = (await get_first_unused_address(avm, root_key)).change;
 
     console.error("Building TX...");
     const unsignedTx = await
-      avm.buildBaseTx(all_utxos, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
+      avm.buildBaseTx(prepared.utxoset, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
       .catch(log_error_and_exit);
-    const signed = await sign_UnsignedTx(unsignedTx, utxo_id_to_path);
+    const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path);
     console.error("Issuing TX...");
     const txid = await avm.issueTx(signed);
     console.log(txid);

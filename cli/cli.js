@@ -125,14 +125,15 @@ async function get_first_unused_address(avm, hdkey, log = false) {
   // Go backwards through the generated addresses to find the last unused address
   last_unused = null;
   for (var i = addresses.length - 1; i >= 0; i--) {
-    const addr = addresses[i];
     const pkh = pkhs[i].toString('hex');
     const utxoids = utxoset.addressUTXOs[pkh];
-    const change_addr = change_addresses[i];
     const change_pkh = change_pkhs[i].toString('hex');
     const change_utxoids = utxoset.addressUTXOs[change_pkh];
-    if (utxoids === undefined && change_utxoids == undefined) {
-      last_unused = { non_change: addr, change: change_addr };
+    if (utxoids === undefined && change_utxoids === undefined) {
+      last_unused = {
+        non_change: addresses[i],
+        change: change_addresses[i],
+      };
     } else {
       break;
     }

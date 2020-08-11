@@ -16,7 +16,7 @@ const BinTools = AvaJS.BinTools.getInstance();
 
 const AVAX_ASSET_ID = "AVA"; // TODO changes to AVAX in next release
 const AVAX_ASSET_ID_SERIALIZED = BinTools.b58ToBuffer("9xc4gcJYYg1zfLeeEFQDLx4HnCk81yUmV1DAUc6VfJFj"); // TODO is this correct? I got this from my account's UTXOSet. I have no idea how it is created.
-const AVA_BIP32_PREFIX = "m/44'/9000'/"
+const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
 
@@ -74,7 +74,7 @@ program
 program
   .command("get-public-key <path>")
   .option("--extended", "Get the extended public key")
-  .description("get the public key of a derivation path. <path> should be 'account/change/address_index'")
+  .description("get the public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
@@ -271,7 +271,7 @@ program
       const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
       const ledger = new Ledger(transport);
 
-      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       const balance = await sum_child_balances(avm, root_key, options.listAddresses);
       console.log(balance.toString());
     } else {
@@ -289,7 +289,7 @@ program
     const avm = ava_js_with_node(options.node).AVM();
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
-    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
+    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
     let result = await get_first_unused_address(avm, root_key, true);
     console.log(result.non_change);
 });
@@ -329,7 +329,7 @@ async function sign_BaseTx(baseTx, hash, utxo_id_to_path) {
 
 async function sign_with_ledger(ledger, hash, path) {
   // BIP44: m / purpose' / coin_type' / account' / change / address_index
-  const full_path = AVA_BIP32_PREFIX + "0'/" + path;
+  const full_path = AVA_BIP32_PREFIX + path;
   console.error("Signing hash", hash.toString('hex').toUpperCase(), "with path", full_path);
   console.error("Please verify on your ledger device");
   return await ledger.signHash(full_path, hash).catch(log_error_and_exit);
@@ -357,7 +357,7 @@ program
     const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
     const ledger = new Ledger(transport);
 
-    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX + "0'");
+    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
     console.error("Discovering addresses...");
     const non_change_key = root_key.deriveChild(0);

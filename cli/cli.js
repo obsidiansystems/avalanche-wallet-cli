@@ -329,7 +329,7 @@ async function sign_BaseTx(baseTx, hash, utxo_id_to_path) {
 
 async function sign_with_ledger(ledger, hash, path) {
   // BIP44: m / purpose' / coin_type' / account' / change / address_index
-  const full_path = AVA_BIP32_PREFIX + path;
+  const full_path = AVA_BIP32_PREFIX + "/" + path;
   console.error("Signing hash", hash.toString('hex').toUpperCase(), "with path", full_path);
   console.error("Please verify on your ledger device");
   return await ledger.signHash(full_path, hash).catch(log_error_and_exit);

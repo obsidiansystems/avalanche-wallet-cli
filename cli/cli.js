@@ -3,6 +3,7 @@
 // Required by ledgerjs
 require("babel-polyfill");
 
+const BipPath = require('bip32-path');
 const HDKey = require('hdkey');
 const createHash = require('create-hash');
 const BN = require("bn.js");
@@ -95,6 +96,10 @@ async function with_transport(options, f) {
   return await f(transport).finally(() => transport.close());
 }
 
+function requestLedgerAccept() {
+  console.error("Please accept the prompt on your Ledger device.");
+}
+
 const program = new commander.Command();
 
 program.version("0.0.1");
@@ -149,6 +154,7 @@ program
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting public key for path", path);
+      requestLedgerAccept();
       const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
       const KC = new AvaJS.AVMKeyPair();
       const pubk_hash = KC.addressFromPublicKey(pubk);
@@ -173,7 +179,7 @@ program
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
-  console.error("Please accept on your ledger device");
+  requestLedgerAccept();
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
   hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
@@ -379,17 +385,21 @@ async function sign_UnsignedTx(unsignedTx, utxo_id_to_path, ledger) {
 
 /* Adapted from avm/tx.ts for class BaseTx */
 async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
+  // TODO: This implies that the resulting path_suffixes is a set. Is that...true?
+  const path_suffixes = new Set(baseTx.ins.map(input => utxo_id_to_path[input.getUTXOID()]));
+  const path_suffix_to_sig_map = await sign_with_ledger(ledger, hash, path_suffixes);
+
   const sigs = [];
-  // For each tx input (sources of funds)
   for (let i = 0; i < baseTx.ins.length; i++) {
-    const input = baseTx.ins[i];
-    const cred = AvaJS.SelectCredentialClass(input.getInput().getCredentialID());
-    const sigidxs = input.getInput().getSigIdxs();
+    const cred = AvaJS.SelectCredentialClass(baseTx.ins[i].getInput().getCredentialID());
+    const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      const path = utxo_id_to_path[input.getUTXOID()];
-      const result = await sign_with_ledger(ledger, hash, path);
+      //const keypair:AVMKeyPair = kc.getKey(sigidxs[j].getSource());
+      const path_suffix = utxo_id_to_path[baseTx.ins[i].getUTXOID()];
+      const signval = path_suffix_to_sig_map.get(path_suffix);
+      if (signval === undefined) throw "Unable to find signature for " + path_suffix;
       const sig = new AvaJS.Signature();
-      sig.fromBuffer(result.signature);
+      sig.fromBuffer(signval);
       cred.addSignature(sig);
     }
     sigs.push(cred);
@@ -397,12 +407,19 @@ async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
   return sigs;
 }
 
-async function sign_with_ledger(ledger, hash, path) {
-  // BIP44: m / purpose' / coin_type' / account' / change / address_index
-  const full_path = AVA_BIP32_PREFIX + "/" + path;
-  console.error("Signing hash", hash.toString('hex').toUpperCase(), "with path", full_path);
-  console.error("Please verify on your ledger device");
-  return await ledger.signHash(full_path, hash).catch(log_error_and_exit);
+async function sign_with_ledger(ledger, hash, path_suffixes) {
+  console.error("Signing hash", hash.toString('hex').toUpperCase());
+  requestLedgerAccept();
+  const result = await ledger.signHash(
+    BipPath.fromString(AVA_BIP32_PREFIX), Array.from(path_suffixes).map(BipPath.fromString), hash
+  ).catch(log_error_and_exit);
+
+  map_string_keys = new Map();
+  result.forEach((value, key) => {
+    map_string_keys.set(key.toString(true), value);
+  });
+
+  return map_string_keys;
 }
 
 function parse_amount(str) {
@@ -457,4 +474,4 @@ async function main() {
   await program.parseAsync(process.argv);
 }
 
-main();
+main().catch(log_error_and_exit);

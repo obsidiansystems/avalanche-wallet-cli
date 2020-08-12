@@ -7,8 +7,8 @@ accounts = {
     password = "good-cub-book",
     -- Private key for the default, pre-funded X-Chain account on local test networks:
     wallet = {{
-      address = "X-6Y3kysjF9jnHnYkdS9yGAuoHyae2eNmeV",
-      privateKey = "ewoqjP7PxY4yr3iLTpLisriqt94hdyDFNgchSxGGztUrTXtNN",
+      address = "X-local18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u",
+      privateKey = "PrivateKey-ewoqjP7PxY4yr3iLTpLisriqt94hdyDFNgchSxGGztUrTXtNN",
     }},
   },
 
@@ -16,18 +16,17 @@ accounts = {
     username = "test1",
     password = "good-cub-book",
     wallet = {{
-      address = "X-3YDcRtaX9Voef9eD5wEDvBDUx9VsV6xhD",
-      privateKey = "2MuCQHXZgxnMNgDShBCK2MJ7WcghPKJU6GERN18mG3inZFZoe4",
+      address = "X-local1r0t6cce8yece0ksdfestg87c8xuhs8fc0mvsfr",
+      privateKey = "PrivateKey-2MuCQHXZgxnMNgDShBCK2MJ7WcghPKJU6GERN18mG3inZFZoe4",
       initialFunds = 20000,
     }},
   },
-
   test2 = {
     username = "test2",
     password = "good-cub-book",
     wallet = {{
-      address = "X-JwFJV5deBqxho3s8FEUxkCSApFL4XK1ha",
-      privateKey = "VDPdTm6a77KD3ATnwm3hMbzrvK8mvo9fzkQDYWyJ7oaC5g8fC",
+      address = "X-local1cj7gnk75hdlu9r3hvrr2eksq8zprmqd8ghxpve",
+      privateKey = "PrivateKey-VDPdTm6a77KD3ATnwm3hMbzrvK8mvo9fzkQDYWyJ7oaC5g8fC",
       initialFunds = 30000,
     }},
   },
@@ -46,7 +45,7 @@ function create_keystore_user (node, account)
   if cred ~= nil then
     print("creating gecko keystore user " .. account.username .. " on " .. node)
     avash_call("callrpc " .. node .. " ext/keystore keystore.createUser " .. json.encode(account_credentials(account)) .. " st nid")
-    for index, addressSpec in ipairs(account.wallet) do
+    for index, addressSpec in ipairs(account.wallet or {}) do
       if addressSpec.privateKey ~= nil then
         cred = account_credentials(account)
         cred.privateKey = addressSpec.privateKey
@@ -67,7 +66,7 @@ end
 function fund_accounts (node, faucet, accounts)
   first = true
   for index, account in pairs(accounts) do
-    for windex, address in ipairs(account.wallet) do
+    for windex, address in ipairs(account.wallet or {}) do
       if address.address ~= nil and address.initialFunds ~= nil then
         if first then
           first = false
@@ -76,7 +75,7 @@ function fund_accounts (node, faucet, accounts)
         end
         print("sending " .. address.initialFunds .. " to " .. address.address)
         params = account_credentials(faucet)
-        params.assetID = "AVA"
+        params.assetID = "AVAX"
         params.amount = address.initialFunds
         params.to = address.address
         avash_call("callrpc " .. node .. " ext/bc/X avm.send " .. json.encode(params) .. " st nid")

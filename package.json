@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "preinstall": "git submodule update --recursive --init && cd ledgerjs && yarn install && yarn build",
+    "preinstall": "[ \"$(ls -A ledgerjs)\" ] || git submodule update --recursive --init ledgerjs; cd ledgerjs; yarn install --frozen-lockfile && yarn build",
     "build": "yarn pkg cli"
   },
   "workspaces": [

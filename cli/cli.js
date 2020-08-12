@@ -10,6 +10,7 @@ const URI = require("urijs");
 const commander = require("commander");
 const AvaJS = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
+const TransportSpeculos = require("@ledgerhq/hw-transport-node-speculos").default;
 const Ledger = require("@ledgerhq/hw-app-avalanche").default;
 
 const BinTools = AvaJS.BinTools.getInstance();
@@ -32,7 +33,10 @@ function log_error_and_exit(err) {
 
 // Convenience function to add the --device option
 commander.Command.prototype.add_device_option = function() {
-  return this.option("-d, --device <device>", "device to use");
+  return this
+    .option("-d, --device <device>", "device to use")
+    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB; overrides --device", parseInt)
+  ;
 }
 
 // Convenience function to add the --node option
@@ -43,6 +47,15 @@ commander.Command.prototype.add_node_option = function() {
 function ava_js_with_node(uri_string) {
   const uri = URI(uri_string);
   return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), 3);
+}
+
+async function with_transport(options, f) {
+  const transport = await (options.speculos === undefined
+    ? TransportNodeHid.open(options.device).catch(log_error_and_exit)
+    : TransportSpeculos.open({ apduPort: options.speculos }).catch(log_error_and_exit)
+  );
+
+  return await f(transport).finally(() => transport.close());
 }
 
 const program = new commander.Command();
@@ -61,10 +74,11 @@ program
   .description("Get details about the running Ledger app")
   .add_device_option()
   .action(async (options) => {
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    const appDetails = await ledger.getAppConfiguration().catch(log_error_and_exit);
-    console.log(appDetails.name + " " + appDetails.version + " (commit " + appDetails.commit + ")")
+    return await with_transport(options, async transport => {
+      const ledger = new Ledger(transport);
+      const appDetails = await ledger.getAppConfiguration().catch(log_error_and_exit);
+      console.log(appDetails.name + " " + appDetails.version + " (commit " + appDetails.commit + ")");
+    });
 });
 
 program
@@ -72,18 +86,20 @@ program
   .description("Get the device model of the connected ledger")
   .add_device_option()
   .action(async (options) => {
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    console.log(transport.deviceModel);
+    return await with_transport(options, async transport => {
+      console.log(transport.deviceModel);
+    });
 });
 
 program
   .command("get-wallet-id")
   .add_device_option()
   .action(async (options) => {
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    const result = await ledger.getWalletId().catch(log_error_and_exit);
-    console.log(result);
+    return await with_transport(options, async transport => {
+      const ledger = new Ledger(transport);
+      const result = await ledger.getWalletId().catch(log_error_and_exit);
+      console.log(result.toString("hex"));
+    });
 });
 
 program
@@ -92,22 +108,23 @@ program
   .description("get the public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    // BIP32: m / purpose' / coin_type' / account' / change / address_index
-    path = AVA_BIP32_PREFIX + "/" + path
-    if (options.extended) {
-      console.error("Getting extended public key for path", path);
-      const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
-      console.log(result);
-    } else {
-      console.error("Getting public key for path ", path);
-      const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-      KC = new AvaJS.AVMKeyPair();
-      pubk_hash = KC.addressFromPublicKey(pubk);
-      address = BinTools.avaSerialize(pubk_hash);
-      console.log(address);
-    }
+    return await with_transport(options, async transport => {
+      const ledger = new Ledger(transport);
+      // BIP32: m / purpose' / coin_type' / account' / change / address_index
+      path = AVA_BIP32_PREFIX + "/" + path
+      if (options.extended) {
+        console.error("Getting extended public key for path", path);
+        const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
+        console.log(result);
+      } else {
+        console.error("Getting public key for path ", path);
+        const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
+        KC = new AvaJS.AVMKeyPair();
+        pubk_hash = KC.addressFromPublicKey(pubk);
+        address = BinTools.avaSerialize(pubk_hash);
+        console.log(address);
+      }
+    });
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
@@ -116,7 +133,7 @@ async function get_extended_public_key(ledger, deriv_path) {
   hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
-  return hdw
+  return hdw;
 }
 
 // Scan addresses and find the first unused address (i.e. the first with no UTXOs)
@@ -162,11 +179,6 @@ function hdkey_to_pkh(hdkey) {
 
 function pkh_to_avax_address(pkh) {
   return "X-" + BinTools.avaSerialize(pkh);
-}
-
-// Convert a 'hdkey' (from the library of the same name) to an AVAX address.
-function hdkey_to_avax_address(hdkey) {
-  return pkh_to_avax_address(hdkey_to_pkh(hdkey));
 }
 
 // Traverse children of a hdkey with the given function. Stops when at least
@@ -215,7 +227,7 @@ async function traverse_used_keys(avm, hdkey, batched_function) {
 async function sum_child_balances(avm, hdkey, log = false) {
   var balance = new BN(0);
 
-  await traverse_used_keys(avm, hdkey, async (batch) => {
+  await traverse_used_keys(avm, hdkey, async batch => {
     // Total the balance for all PKHs
     for (const [pkh, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
       var bal = new BN(0);
@@ -283,12 +295,13 @@ program
     const avm = ava.AVM();
 
     if (address === undefined) {
-      const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-      const ledger = new Ledger(transport);
+      await with_transport(options, async transport => {
+        const ledger = new Ledger(transport);
 
-      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-      const balance = await sum_child_balances(avm, root_key, options.listAddresses);
-      console.log(balance.toString());
+        const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+        const balance = await sum_child_balances(avm, root_key, options.listAddresses);
+        console.log(balance.toString());
+      });
     } else {
       let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
       console.log(result.toString(10, 0));
@@ -302,28 +315,25 @@ program
   .add_device_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
-    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-    let result = await get_first_unused_address(avm, root_key, true);
-    console.log(result.non_change);
+    return await with_transport(options, async transport => {
+      const ledger = new Ledger(transport);
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+      let result = await get_first_unused_address(avm, root_key, true);
+      console.log(result.non_change);
+    });
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(unsignedTx, utxo_id_to_path) {
+async function sign_UnsignedTx(unsignedTx, utxo_id_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(baseTx, hash, utxo_id_to_path);
+  const sigs = await sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger);
   return new AvaJS.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(baseTx, hash, utxo_id_to_path) {
-  // TODO maybe these should be moved out and passed in
-  const transport = await TransportNodeHid.open().catch(log_error_and_exit);
-  const ledger = new Ledger(transport);
-
+async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
   const sigs = [];
   // For each tx input (sources of funds)
   for (let i = 0; i < baseTx.ins.length; i++) {
@@ -369,32 +379,33 @@ program
   .add_device_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
-    const transport = await TransportNodeHid.open(options.device).catch(log_error_and_exit);
-    const ledger = new Ledger(transport);
+    return await with_transport(options, async transport => {
+      const ledger = new Ledger(transport);
 
-    const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
-    console.error("Discovering addresses...");
-    const non_change_key = root_key.deriveChild(0);
-    const change_key = root_key.deriveChild(1);
-    const prepared = await prepare_for_transfer(avm, root_key);
+      console.error("Discovering addresses...");
+      const non_change_key = root_key.deriveChild(0);
+      const change_key = root_key.deriveChild(1);
+      const prepared = await prepare_for_transfer(avm, root_key);
 
-    const amount = parse_amount(options.amount);
-    const toAddress = options.to;
-    const fromAddresses = prepared.addresses;
+      const amount = parse_amount(options.amount);
+      const toAddress = options.to;
+      const fromAddresses = prepared.addresses;
 
-    console.error("Getting new change address...");
-    // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-    const changeAddress = (await get_first_unused_address(avm, root_key)).change;
+      console.error("Getting new change address...");
+      // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+      const changeAddress = (await get_first_unused_address(avm, root_key)).change;
 
-    console.error("Building TX...");
-    const unsignedTx = await
-      avm.buildBaseTx(prepared.utxoset, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
-      .catch(log_error_and_exit);
-    const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path);
-    console.error("Issuing TX...");
-    const txid = await avm.issueTx(signed);
-    console.log(txid);
+      console.error("Building TX...");
+      const unsignedTx = await
+        avm.buildBaseTx(prepared.utxoset, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
+        .catch(log_error_and_exit);
+      const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);
+      console.error("Issuing TX...");
+      const txid = await avm.issueTx(signed);
+      console.log(txid);
+    });
 });
 
 async function main() {

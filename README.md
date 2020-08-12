@@ -37,7 +37,8 @@ $ curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh |
 ```
 To reflect the changes for the current user session, use the following command:
 ```bash
-$ source ~/.profile
+$ export NVM_DIR="$HOME/.nvm"
+$ [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 ```
 
 #### Installation of Node.js

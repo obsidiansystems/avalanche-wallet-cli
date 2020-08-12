@@ -9,7 +9,6 @@ const BN = require("bn.js");
 const URI = require("urijs");
 const commander = require("commander");
 const AvaJS = require("avalanche");
-const { command } = require("commander");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
 const TransportSpeculos = require("@ledgerhq/hw-transport-node-speculos").default;
 const Ledger = require("@ledgerhq/hw-app-avalanche").default;

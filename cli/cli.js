@@ -103,27 +103,35 @@ program
 });
 
 program
-  .command("get-public-key <path>")
-  .option("--extended", "Get the extended public key")
-  .description("get the public key of a derivation path. <path> should be 'change/address_index'")
+  .command("get-address <path>")
+  .description("get the address of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path
-      if (options.extended) {
-        console.error("Getting extended public key for path", path);
-        const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
-        console.log(result);
-      } else {
-        console.error("Getting public key for path ", path);
-        const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-        KC = new AvaJS.AVMKeyPair();
-        pubk_hash = KC.addressFromPublicKey(pubk);
-        address = BinTools.avaSerialize(pubk_hash);
-        console.log(address);
-      }
+      console.error("Getting public key for path", path);
+      const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
+      KC = new AvaJS.AVMKeyPair();
+      pubk_hash = KC.addressFromPublicKey(pubk);
+      address = BinTools.avaSerialize(pubk_hash);
+      console.log(address);
+    });
+});
+
+program
+  .command("get-extended-public-key <path>")
+  .description("get the extended public key of a derivation path. <path> should be 'change/address_index'")
+  .add_device_option()
+  .action(async (path, options) => {
+    return await with_transport(options, async transport => {
+      const ledger = new Ledger(transport);
+      // BIP32: m / purpose' / coin_type' / account' / change / address_index
+      path = AVA_BIP32_PREFIX + "/" + path
+      console.error("Getting extended public key for path", path);
+      const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
+      console.log(result);
     });
 });
 

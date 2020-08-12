@@ -33,16 +33,15 @@ function log_error_and_exit(err) {
 
 // Convenience function to add the --device option
 commander.Command.prototype.add_device_option = function() {
-  return this.option("-d, --device <device>", "device to use");
+  return this
+    .option("-d, --device <device>", "device to use")
+    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB; overrides --device", parseInt)
+  ;
 }
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
   return this.option("-n, --node <uri>", "node to use", "https://testapi.avax.network");
-}
-
-commander.Command.prototype.add_speculos_option = function() {
-  return this.option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB; overrides --device", parseInt);
 }
 
 function ava_js_with_node(uri_string) {
@@ -74,7 +73,6 @@ program
   .command("get-app-details")
   .description("Get details about the running Ledger app")
   .add_device_option()
-  .add_speculos_option()
   .action(async (options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
@@ -96,7 +94,6 @@ program
 program
   .command("get-wallet-id")
   .add_device_option()
-  .add_speculos_option()
   .action(async (options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
@@ -110,7 +107,6 @@ program
   .option("--extended", "Get the extended public key")
   .description("get the public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
-  .add_speculos_option()
   .action(async (path, options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
@@ -294,7 +290,6 @@ program
   .description("Get the AVAX balance of this wallet or a particular address")
   .add_node_option()
   .add_device_option()
-  .add_speculos_option()
   .action(async (address, options) => {
     const ava = ava_js_with_node(options.node);
     const avm = ava.AVM();
@@ -318,7 +313,6 @@ program
   .description("Get a fresh address for receiving funds")
   .add_node_option()
   .add_device_option()
-  .add_speculos_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
     return await with_transport(options, async transport => {
@@ -383,7 +377,6 @@ program
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
-  .add_speculos_option()
   .action(async options => {
     const avm = ava_js_with_node(options.node).AVM();
     return await with_transport(options, async transport => {

@@ -34,8 +34,9 @@ function log_error_and_exit(err) {
 // Convenience function to add the --device option
 commander.Command.prototype.add_device_option = function() {
   return this
-    .option("-d, --device <device>", "device to use")
+    .option("--device <device>", "device to use")
     .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB; overrides --device", parseInt)
+    .option("--wallet <wallet-id>", "use a device with this wallet ID")
   ;
 }
 
@@ -49,12 +50,48 @@ function ava_js_with_node(uri_string) {
   return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), 3);
 }
 
-async function with_transport(options, f) {
-  const transport = await (options.speculos === undefined
-    ? TransportNodeHid.open(options.device).catch(log_error_and_exit)
-    : TransportSpeculos.open({ apduPort: options.speculos }).catch(log_error_and_exit)
-  );
+async function get_transport_with_wallet(devices, open, chosen_device, wallet_id) {
+  let found_device = null;
+  // If the user doesn't specify a wallet, just use the given device.
+  // If they don't specify a device, this will be set to undefined, and 'open'
+  // will connect to the first one.
+  if (wallet_id === undefined) {
+    found_device = chosen_device;
+  } else {
+    // If the user specifies a particular device, only check that one
+    devices = chosen_device === undefined ? devices : [chosen_device];
+    console.error("Finding device with wallet ID", wallet_id);
+    // Loop through the devices checking for a matching wallet ID
+    for (const i in devices) {
+      const device = devices[i];
+      process.stderr.write(device + " ");
+      const transport = await open(device).catch(_ => console.error("[Skipped: Couldn't connect]"));
+      if (transport === undefined) continue;
+      const ledger = new Ledger(transport);
+      const device_wallet_id = await ledger.getWalletId().catch(_ => console.error("[Skipped: Couldn't get wallet ID]"));
+      if (device_wallet_id == undefined) continue;
+      const device_wallet_id_hex = device_wallet_id.toString('hex');
+      process.stderr.write(device_wallet_id_hex);
+      if (device_wallet_id_hex == wallet_id) {
+        console.error(" [Chosen]");
+        found_device = device;
+        break;
+      } else {
+        console.error(" [Skipped: Different wallet ID]");
+      }
+    }
+  }
+  if (found_device === null) {
+    throw "No device found with wallet ID " + wallet_id;
+  } else {
+    return await open(found_device).catch(log_error_and_exit)
+  }
+}
 
+async function with_transport(options, f) {
+  const transport = options.speculos === undefined
+    ? await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet).catch(log_error_and_exit)
+    : await get_transport_with_wallet([options.speculos], TransportSpeculos.open, options.speculos, options.wallet).catch(log_error_and_exit);
   return await f(transport).finally(() => transport.close());
 }
 

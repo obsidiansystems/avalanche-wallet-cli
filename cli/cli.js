@@ -113,9 +113,9 @@ program
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting public key for path", path);
       const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-      KC = new AvaJS.AVMKeyPair();
-      pubk_hash = KC.addressFromPublicKey(pubk);
-      address = pkh_to_avax_address(pubk_hash);
+      const KC = new AvaJS.AVMKeyPair();
+      const pubk_hash = KC.addressFromPublicKey(pubk);
+      const address = pkh_to_avax_address(pubk_hash);
       console.log(address);
     });
 });

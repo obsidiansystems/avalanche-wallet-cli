@@ -67,7 +67,11 @@ $ npm install yarn -g
 
 #### Installation of JavaScript dependencies
 
-Run `yarn install` from the top level directory of this project.
+Run this from the top level directory of this project:
+
+```bash
+$ yarn install --frozen-lockfile
+```
 
 ## Running the CLI
 

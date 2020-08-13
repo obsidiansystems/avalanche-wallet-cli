@@ -115,7 +115,7 @@ program
       const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
       KC = new AvaJS.AVMKeyPair();
       pubk_hash = KC.addressFromPublicKey(pubk);
-      address = BinTools.avaSerialize(pubk_hash);
+      address = pkh_to_avax_address(pubk_hash);
       console.log(address);
     });
 });

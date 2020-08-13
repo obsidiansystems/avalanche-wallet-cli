@@ -130,3 +130,25 @@ Note that the value may be much larger than 100, but the difference should be
 sent to another of your addresses (it'll be the output address which isn't
 X-A4ZiuDcNizdqojr4XqEBSFx9CmKuXvQSX). You can run `cli/cli.js get-balance
 --list-addresses` to check that this address did indeed get the leftover funds.
+
+## get-address
+
+Run `cli/cli.js get-address 0/0`. You'll be prompted on your ledger device, and
+it should return the address in the terminal. You should check that the address
+shown on your ledger device matches the address returned in the terminal.
+
+Also, this should match the web wallet. To check this, in the web wallet, go to
+the "Manage" page in the left menu. The bottom section, "My Keys", should list
+your active keys (probably only one). Within that key are a section of buttons
+on the right hand side: two icons and a "View Key Phrase" button. First you must
+be sure that the web wallet is using the same mnemonic phrase as your ledger
+device. Click the "View Key Phrase" button and verify they match. If they don't
+you must reset the web wallet and create another with the same phrase, and go
+through these instructions again. If they do match, hover over the icon buttons
+next to "View Key Phrase" and click the one which is labeled "Past Addresses".
+You should see a list of all the addresses you've had in the past in this
+wallet, ordered by the index (`#` column). If you have many addresses here, you
+can check they match by running `cli/cli.js get-address 0/N` where you
+substitute the number in the `#` column as `N`. So, for the third key in the
+list, you'd run `cli/cli.js get-address 0/2`. You don't need to check them all,
+just pick a few.

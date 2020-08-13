@@ -411,7 +411,7 @@ async function sign_with_ledger(ledger, hash, path_suffixes) {
   console.error("Signing hash", hash.toString('hex').toUpperCase());
   requestLedgerAccept();
   const result = await ledger.signHash(
-    BipPath.fromString(AVA_BIP32_PREFIX), Array.from(path_suffixes).map(BipPath.fromString), hash
+    BipPath.fromString(AVA_BIP32_PREFIX), Array.from(path_suffixes).map(x => BipPath.fromString(x, false)), hash
   ).catch(log_error_and_exit);
 
   map_string_keys = new Map();

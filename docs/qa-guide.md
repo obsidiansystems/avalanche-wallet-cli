@@ -164,3 +164,9 @@ get-address 0/0`. The extended public key returned should look something like:
 ```
 xpub661MyMwAqRbcFH27nCDjzK2FZdQPs9r4PhxYwANH7CkLqA66YiY2ji4RJVcvg4QQoMRLMyRG8Y3y5c7cCu5fkU1wdUA7pmSZQrJ5rwsQAW1
 ```
+
+## get-app-details
+
+Run `cli/cli.js get-app-details`. This should immediately return with the ledger
+app version and git commit. The git commit should match the version you
+installed.

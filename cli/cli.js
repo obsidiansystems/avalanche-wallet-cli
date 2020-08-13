@@ -152,7 +152,7 @@ program
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
-      path = AVA_BIP32_PREFIX + "/" + path
+      path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting public key for path", path);
       requestLedgerAccept();
       const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
@@ -171,7 +171,7 @@ program
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
-      path = AVA_BIP32_PREFIX + "/" + path
+      path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting extended public key for path", path);
       const result = await get_extended_public_key(ledger, path);
       console.log(result.publicExtendedKey);
@@ -181,6 +181,12 @@ program
 async function get_extended_public_key(ledger, deriv_path) {
   requestLedgerAccept();
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
+  //let extended_public_key = {};
+  // extended_public_key.public_key = Buffer.from("043033e21973c30ed7e50fa546f8690e25685ac900c3be24c5f641b9c1b959344151169853808be753760dd6aeddd3556f0efaafa6279b64f0ae49de0417ea70b2", "hex");
+  // extended_public_key.chain_code = Buffer.from("590c70e192c597c23ad7c8185c12952b50525ff9d839a95bf6a7e6da359ce873", "hex");
+  // console.error("Pubkey");
+  // console.error("pubkey =", extended_public_key.public_key.toString("hex"));
+  // console.error("chaincode =", extended_public_key.chain_code.toString("hex"));
   hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
@@ -305,23 +311,16 @@ async function prepare_for_transfer(avm, hdkey) {
   var utxoset = new AvaJS.UTXOSet();
   var addresses = [];
   var change_addresses = [];
-  var utxoid_to_path = {}; // A dictionary from UTXOID to path (change/address)
+  var addr_to_path = {};
 
   await traverse_used_keys(avm, hdkey, batch => {
-    // Update the UTXOID -> index dictionary
-    // TODO does this need to be UTXOID -> [index], or does UTXOID -> index suffice?
-    // i.e. are we clobbering existing indices?
-    for (const [pkh, utxos] of Object.entries(batch.utxoset.addressUTXOs)) {
-      const addr = pkh_to_avax_address(Buffer.from(pkh, 'hex'));
-      for (const utxoid of Object.keys(utxos)) {
-        utxoid_to_path[utxoid] = batch.address_to_path[addr];
-      }
-    };
-
+    addr_to_path = Object.assign(addr_to_path, batch.address_to_path);
     utxoset = utxoset.union(batch.utxoset);
     addresses = addresses.concat(batch.non_change.addresses);
     change_addresses = change_addresses.concat(batch.change.addresses);
   });
+
+  console.error("addr_to_path", addr_to_path);
 
   return {
     utxoset: utxoset,
@@ -331,7 +330,7 @@ async function prepare_for_transfer(avm, hdkey) {
     // buildBaseTx will filter down to the minimum requirement in the order of
     // this array (and it is ordered by increasing path index).
     addresses: change_addresses.concat(addresses),
-    utxoid_to_path: utxoid_to_path,
+    addr_to_path: addr_to_path
   }
 }
 
@@ -375,18 +374,26 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(unsignedTx, utxo_id_to_path, ledger) {
+async function sign_UnsignedTx(unsignedTx, addr_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger);
+  const sigs = await sign_BaseTx(baseTx, hash, addr_to_path, ledger);
   return new AvaJS.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
+async function sign_BaseTx(baseTx, hash, addr_to_path, ledger) {
   // TODO: This implies that the resulting path_suffixes is a set. Is that...true?
-  const path_suffixes = new Set(baseTx.ins.map(input => utxo_id_to_path[input.getUTXOID()]));
+  let path_suffixes = new Set();
+
+  for (let i = 0; i < baseTx.ins.length; i++) {
+    const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
+    for (let j = 0; j < sigidxs.length; j++) {
+      path_suffixes.add(addr_to_path[pkh_to_avax_address(sigidxs[j].getSource())]);
+    }
+  }
+
   const path_suffix_to_sig_map = await sign_with_ledger(ledger, hash, path_suffixes);
 
   const sigs = [];
@@ -394,8 +401,7 @@ async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
     const cred = AvaJS.SelectCredentialClass(baseTx.ins[i].getInput().getCredentialID());
     const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      //const keypair:AVMKeyPair = kc.getKey(sigidxs[j].getSource());
-      const path_suffix = utxo_id_to_path[baseTx.ins[i].getUTXOID()];
+      const path_suffix = addr_to_path[pkh_to_avax_address(sigidxs[j].getSource())];
       const signval = path_suffix_to_sig_map.get(path_suffix);
       if (signval === undefined) throw "Unable to find signature for " + path_suffix;
       const sig = new AvaJS.Signature();
@@ -404,22 +410,24 @@ async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
     }
     sigs.push(cred);
   }
+
   return sigs;
 }
 
 async function sign_with_ledger(ledger, hash, path_suffixes) {
-  console.error("Signing hash", hash.toString('hex').toUpperCase());
+  const path_suffixes_arr = Array.from(path_suffixes);
+  console.error("Signing hash", hash.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
   requestLedgerAccept();
-  const result = await ledger.signHash(
-    BipPath.fromString(AVA_BIP32_PREFIX), Array.from(path_suffixes).map(x => BipPath.fromString(x, false)), hash
+  const path_suffix_to_sig = await ledger.signHash(
+    BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), hash
   ).catch(log_error_and_exit);
 
-  map_string_keys = new Map();
-  result.forEach((value, key) => {
-    map_string_keys.set(key.toString(true), value);
+  console.error("Signatures:");
+  path_suffix_to_sig.forEach((value, key) => {
+    console.error(" ", key + ":", value.toString("hex"));
   });
 
-  return map_string_keys;
+  return path_suffix_to_sig;
 }
 
 function parse_amount(str) {
@@ -463,7 +471,10 @@ program
       const unsignedTx = await
         avm.buildBaseTx(prepared.utxoset, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
         .catch(log_error_and_exit);
-      const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);
+      console.error("unsignedTx =", unsignedTx.toBuffer().toString("hex"));
+      const signed = await sign_UnsignedTx(unsignedTx, prepared.addr_to_path, ledger);
+      console.error(signed);
+      console.error(JSON.stringify(signed));
       console.error("Issuing TX...");
       const txid = await avm.issueTx(signed);
       console.log(txid);

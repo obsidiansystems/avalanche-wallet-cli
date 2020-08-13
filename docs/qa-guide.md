@@ -152,3 +152,15 @@ can check they match by running `cli/cli.js get-address 0/N` where you
 substitute the number in the `#` column as `N`. So, for the third key in the
 list, you'd run `cli/cli.js get-address 0/2`. You don't need to check them all,
 just pick a few.
+
+## get-extended-public-key
+
+Run `cli/cli.js get-extended-public-key 0/0`. You should be prompted on your ledger
+device to "Provide Extended Public Key". The path displayed on your ledger
+should match the path printed in the terminal, and the address displayed on your
+ledger should be the same as the address displayed for running `cli/cli.js
+get-address 0/0`. The extended public key returned should look something like:
+
+```
+xpub661MyMwAqRbcFH27nCDjzK2FZdQPs9r4PhxYwANH7CkLqA66YiY2ji4RJVcvg4QQoMRLMyRG8Y3y5c7cCu5fkU1wdUA7pmSZQrJ5rwsQAW1
+```

@@ -113,9 +113,9 @@ program
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting public key for path", path);
       const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-      KC = new AvaJS.AVMKeyPair();
-      pubk_hash = KC.addressFromPublicKey(pubk);
-      address = BinTools.avaSerialize(pubk_hash);
+      const KC = new AvaJS.AVMKeyPair();
+      const pubk_hash = KC.addressFromPublicKey(pubk);
+      const address = pkh_to_avax_address(pubk_hash);
       console.log(address);
     });
 });
@@ -130,8 +130,8 @@ program
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting extended public key for path", path);
-      const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
-      console.log(result);
+      const result = await get_extended_public_key(ledger, path);
+      console.log(result.publicExtendedKey);
     });
 });
 

@@ -35,6 +35,7 @@ function log_error_and_exit(err) {
 commander.Command.prototype.add_device_option = function() {
   return this
     .option("-d, --device <device>", "device to use")
+    .option("--wallet <wallet-id>", "use the device with this wallet ID (overrides --device)")
     .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB; overrides --device", parseInt)
   ;
 }
@@ -49,11 +50,38 @@ function ava_js_with_node(uri_string) {
   return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), 3);
 }
 
+async function get_device_with_wallet_id(wallet_id) {
+  console.error("Finding device with wallet ID", wallet_id);
+  const devices = await TransportNodeHid.list();
+  for (const i in devices) {
+    const device = devices[i];
+    process.stderr.write(device + " ");
+    const transport = await TransportNodeHid.open(device)
+      .catch(_ => { console.error("[Skipped: Couldn't connect]"); });
+    const ledger = new Ledger(transport);
+    const device_wallet_id = await ledger.getWalletId()
+      .catch(_ => { console.error("[Skipped: Couldn't get wallet ID]"); });
+    if (device_wallet_id == undefined) continue;
+    const device_wallet_id_hex = device_wallet_id.toString('hex');
+    process.stderr.write(device_wallet_id_hex);
+    if (device_wallet_id_hex == wallet_id) {
+      console.error(" [Chosen]");
+      return device;
+    } else {
+      console.error(" [Skipped: Different wallet ID]");
+    }
+  }
+  throw "No device found with wallet ID " + wallet_id;
+}
+
 async function with_transport(options, f) {
-  const transport = await (options.speculos === undefined
-    ? TransportNodeHid.open(options.device).catch(log_error_and_exit)
-    : TransportSpeculos.open({ apduPort: options.speculos }).catch(log_error_and_exit)
-  );
+  let transport;
+  if (options.speculos === undefined) {
+    const dev = options.wallet === undefined ? options.device : await get_device_with_wallet_id(options.wallet);
+    transport = await TransportNodeHid.open(dev).catch(log_error_and_exit)
+  } else {
+    transport = await TransportSpeculos.open({ apduPort: options.speculos }).catch(log_error_and_exit)
+  };
 
   return await f(transport).finally(() => transport.close());
 }

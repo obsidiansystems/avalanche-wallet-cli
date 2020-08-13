@@ -130,8 +130,8 @@ program
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting extended public key for path", path);
-      const result = await ledger.getWalletExtendedPublicKey(path).catch(log_error_and_exit);
-      console.log(result);
+      const result = await get_extended_public_key(ledger, path);
+      console.log(result.publicExtendedKey);
     });
 });
 

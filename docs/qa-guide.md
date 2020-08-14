@@ -50,7 +50,22 @@ list-devices` and note down where your device is connected. For example, if you
 got `[ '/dev/hidraw7' ]`, your device would be located at `/dev/hidraw7` (ignore
 the brackets and apostrophes).
 
-Run `cli/cli.js get-device-model --device /dev/hidraw7` (but replace hidraw7
+> __Note for macOS__: you'll get a very long result from `list-devices`. It'll look
+> like this:
+> ```bash
+> $ cli/cli.js list-devices
+> [
+>   'IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/XHC1@14/XHC1@14000000/HS02@14200000/Nano S@14200000/Nano S@0/IOUSBHostHIDDevice@14200000,0'
+> ]
+> ```
+> You should name the result you get so the following steps are easier to do:
+> ```bash
+> export LEDGER='IOService:/AppleACPIPlatformExpert/PCI0@0/AppleACPIPCI/XHC1@14/XHC1@14000000/HS02@14200000/Nano S@14200000/Nano S@0/IOUSBHostHIDDevice@14200000,0'
+> ```
+> Then in the following steps, use $LEDGER as your device instead of
+> /dev/hidraw7.
+
+Run `cli/cli.js get-device-model --device /dev/hidraw7` (but replace /dev/hidraw7
 with the path you got from list-devices). You should get the same output as
 running get-device-model with no --device option.
 

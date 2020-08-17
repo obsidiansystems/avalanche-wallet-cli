@@ -91,7 +91,7 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
 async function with_transport(options, f) {
   const transport = options.speculos === undefined
     ? await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet).catch(log_error_and_exit)
-    : await get_transport_with_wallet([options.speculos], TransportSpeculos.open, options.speculos, options.wallet).catch(log_error_and_exit);
+    : await get_transport_with_wallet([options.speculos], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet).catch(log_error_and_exit);
   return await f(transport).finally(() => transport.close());
 }
 

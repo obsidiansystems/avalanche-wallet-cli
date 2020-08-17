@@ -181,12 +181,6 @@ program
 async function get_extended_public_key(ledger, deriv_path) {
   requestLedgerAccept();
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
-  //let extended_public_key = {};
-  // extended_public_key.public_key = Buffer.from("043033e21973c30ed7e50fa546f8690e25685ac900c3be24c5f641b9c1b959344151169853808be753760dd6aeddd3556f0efaafa6279b64f0ae49de0417ea70b2", "hex");
-  // extended_public_key.chain_code = Buffer.from("590c70e192c597c23ad7c8185c12952b50525ff9d839a95bf6a7e6da359ce873", "hex");
-  // console.error("Pubkey");
-  // console.error("pubkey =", extended_public_key.public_key.toString("hex"));
-  // console.error("chaincode =", extended_public_key.chain_code.toString("hex"));
   hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
@@ -320,8 +314,6 @@ async function prepare_for_transfer(avm, hdkey) {
     change_addresses = change_addresses.concat(batch.change.addresses);
   });
 
-  console.error("addr_to_path", addr_to_path);
-
   return {
     utxoset: utxoset,
     // We build the from addresses from all discovered change addresses,
@@ -384,9 +376,7 @@ async function sign_UnsignedTx(unsignedTx, addr_to_path, ledger) {
 
 /* Adapted from avm/tx.ts for class BaseTx */
 async function sign_BaseTx(baseTx, hash, addr_to_path, ledger) {
-  // TODO: This implies that the resulting path_suffixes is a set. Is that...true?
   let path_suffixes = new Set();
-
   for (let i = 0; i < baseTx.ins.length; i++) {
     const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
@@ -455,8 +445,6 @@ program
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
-      const non_change_key = root_key.deriveChild(0);
-      const change_key = root_key.deriveChild(1);
       const prepared = await prepare_for_transfer(avm, root_key);
 
       const amount = parse_amount(options.amount);
@@ -471,10 +459,8 @@ program
       const unsignedTx = await
         avm.buildBaseTx(prepared.utxoset, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
         .catch(log_error_and_exit);
-      console.error("unsignedTx =", unsignedTx.toBuffer().toString("hex"));
+
       const signed = await sign_UnsignedTx(unsignedTx, prepared.addr_to_path, ledger);
-      console.error(signed);
-      console.error(JSON.stringify(signed));
       console.error("Issuing TX...");
       const txid = await avm.issueTx(signed);
       console.log(txid);

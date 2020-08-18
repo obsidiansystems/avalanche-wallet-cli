@@ -49,8 +49,7 @@ async function getExtendedPublicKey(ledger, deriv_path) {
 }
 
 function hdkey_to_pkh(hdkey) {
-  const KC = new AvaJS.AVMKeyPair();
-  return KC.addressFromPublicKey(hdkey.publicKey);
+  return (new AvaJS.common.SECP256k1KeyPair()).addressFromPublicKey(hdkey.publicKey);
 }
 
 function pkh_to_avax_address(pkh) {

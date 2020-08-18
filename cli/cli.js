@@ -219,8 +219,7 @@ async function get_first_unused_address(ava, hdkey, log = false) {
 }
 
 function hdkey_to_pkh(hdkey) {
-  const KC = new AvaJS.AVMKeyPair();
-  return KC.addressFromPublicKey(hdkey.publicKey);
+  return (new AvaJS.common.SECP256k1KeyPair()).addressFromPublicKey(hdkey.publicKey);
 }
 
 function pkh_to_avax_address(ava, pkh) {
@@ -256,6 +255,7 @@ async function traverse_used_keys(ava, hdkey, batched_function) {
       batch.address_to_path[address] = "0/" + (index + i);
       batch.address_to_path[change_address] = "1/" + (index + i);
     }
+
     // Get UTXOs for this batch
     batch.utxoset = await
       avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses))
@@ -466,7 +466,11 @@ program
 });
 
 async function main() {
-  await program.parseAsync(process.argv);
+  try {
+    await program.parseAsync(process.argv);
+  } catch (e) {
+    log_error_and_exit(e);
+  }
 }
 
 main();

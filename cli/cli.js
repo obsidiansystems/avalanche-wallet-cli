@@ -377,7 +377,7 @@ async function sign_UnsignedTx(unsignedTx, utxo_id_to_path, ledger) {
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger);
-  return new AvaJS.Tx(unsignedTx, sigs);
+  return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
@@ -386,12 +386,12 @@ async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
   // For each tx input (sources of funds)
   for (let i = 0; i < baseTx.ins.length; i++) {
     const input = baseTx.ins[i];
-    const cred = AvaJS.SelectCredentialClass(input.getInput().getCredentialID());
+    const cred = AvaJS.avm.SelectCredentialClass(input.getInput().getCredentialID());
     const sigidxs = input.getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
       const path = utxo_id_to_path[input.getUTXOID()];
       const result = await sign_with_ledger(ledger, hash, path);
-      const sig = new AvaJS.Signature();
+      const sig = new AvaJS.common.Signature();
       sig.fromBuffer(result.signature);
       cred.addSignature(sig);
     }

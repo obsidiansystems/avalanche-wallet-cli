@@ -2,3 +2,6 @@
 	path = ledgerjs
 	url = https://github.com/obsidiansystems/ledgerjs.git
 	branch = ava
+[submodule "avalanche.js"]
+	path = avalanche.js
+	url = https://github.com/ava-labs/avalanche.js/

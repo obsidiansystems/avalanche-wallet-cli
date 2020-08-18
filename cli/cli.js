@@ -232,6 +232,7 @@ function pkh_to_avax_address(ava, pkh) {
 async function traverse_used_keys(ava, hdkey, batched_function) {
   // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
+  const avm = ava.XChain();
   var index = 0;
   var all_unused = false;
   while (!all_unused || index < SCAN_SIZE) {

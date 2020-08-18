@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const AvaJS = require("avalanche");
+const bech32 = require('bech32');
 const BinTools = AvaJS.BinTools.getInstance();
 const BN = require("bn.js");
 const commander = require("commander");
@@ -11,8 +12,8 @@ const URI = require("urijs");
 
 const FAUCET_USERNAME = "faucet";
 const FAUCET_PASSWORD = "good-cub-book";
-const FAUCET_ADDRESS = "X-6Y3kysjF9jnHnYkdS9yGAuoHyae2eNmeV";
-const AVAX_ASSET_ID = "AVA";
+const FAUCET_ADDRESS = "X-local18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u";
+const AVAX_ASSET_ID = "AVAX";
 const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 
 function logErrorAndExit(err) {
@@ -35,7 +36,7 @@ commander.Command.prototype.addNodeOption = function() {
 
 function avaJsWithNode(uri_string) {
   const uri = URI(uri_string);
-  return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), 3);
+  return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), 12345);
 }
 
 async function getExtendedPublicKey(ledger, deriv_path) {
@@ -53,7 +54,7 @@ function hdkey_to_pkh(hdkey) {
 }
 
 function pkh_to_avax_address(pkh) {
-  return "X-" + BinTools.avaSerialize(pkh);
+  return "X-" + bech32.encode("local", bech32.toWords(pkh));
 }
 
 // Convert a 'hdkey' (from the library of the same name) to an AVAX address.
@@ -86,7 +87,7 @@ program
   const transport = await TransportNodeHid.open().catch(logErrorAndExit);
   const ledger = new Ledger(transport);
   const ava = avaJsWithNode(options.node);
-  const avm = ava.AVM();
+  const avm = ava.XChain();
 
   const amountBN = new BN(amount);
   const non_change_key = await getExtendedPublicKey(ledger, AVA_BIP32_PREFIX + "/0");

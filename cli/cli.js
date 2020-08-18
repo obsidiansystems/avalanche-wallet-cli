@@ -14,9 +14,10 @@ const TransportSpeculos = require("@ledgerhq/hw-transport-node-speculos").defaul
 const Ledger = require("@ledgerhq/hw-app-avalanche").default;
 
 const BinTools = AvaJS.BinTools.getInstance();
+const bech32 = require('bech32');
 
-const AVAX_ASSET_ID = "AVA"; // TODO changes to AVAX in next release
-const AVAX_ASSET_ID_SERIALIZED = BinTools.b58ToBuffer("9xc4gcJYYg1zfLeeEFQDLx4HnCk81yUmV1DAUc6VfJFj"); // TODO is this correct? I got this from my account's UTXOSet. I have no idea how it is created.
+const AVAX_ASSET_ID = "AVAX"; // TODO changes to AVAX in next release
+const AVAX_ASSET_ID_SERIALIZED = BinTools.cb58Decode("2TrXx5kLGWa9RP3RiYWi7VkmNbppwPU4DCmTdqwuKzGFE7fsvP");
 const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
@@ -143,17 +144,17 @@ program
   .command("get-address <path>")
   .description("get the address of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
+  .option("--hrp <ascii-text>", "Bech32 Human Readable Part", "mainnet")
   .action(async (path, options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting public key for path", path);
-      const pubk = await ledger.getWalletPublicKey(path).catch(log_error_and_exit);
-      const KC = new AvaJS.AVMKeyPair();
-      const pubk_hash = KC.addressFromPublicKey(pubk);
-      const address = pkh_to_avax_address(pubk_hash);
-      console.log(address);
+      const pubk_hash = await ledger.getWalletAddress(path,options.hrp).catch(log_error_and_exit);
+      const base32_hash = bech32.toWords(pubk_hash);
+      const address = bech32.encode(options.hrp, base32_hash);
+      console.log("X-" + address);
     });
 });
 
@@ -182,14 +183,14 @@ async function get_extended_public_key(ledger, deriv_path) {
 }
 
 // Scan addresses and find the first unused address (i.e. the first with no UTXOs)
-async function get_first_unused_address(avm, hdkey, log = false) {
+async function get_first_unused_address(ava, hdkey, log = false) {
   var utxoset = new AvaJS.UTXOSet();
   var addresses = [];
   var pkhs = [];
   var change_addresses = [];
   var change_pkhs = [];
 
-  await traverse_used_keys(avm, hdkey, batch => {
+  await traverse_used_keys(ava, hdkey, batch => {
     utxoset = utxoset.union(batch.utxoset);
     addresses = addresses.concat(batch.non_change.addresses);
     pkhs = pkhs.concat(batch.non_change.pkhs);
@@ -222,16 +223,17 @@ function hdkey_to_pkh(hdkey) {
   return KC.addressFromPublicKey(hdkey.publicKey);
 }
 
-function pkh_to_avax_address(pkh) {
-  return "X-" + BinTools.avaSerialize(pkh);
+function pkh_to_avax_address(ava, pkh) {
+  return "X-" + bech32.encode(ava.hrp, bech32.toWords(pkh));
 }
 
 // Traverse children of a hdkey with the given function. Stops when at least
 // INDEX_RANGE addresses are "unused" (right now, this means they have no UTXOs)
 // TODO check TX history too to determine unused status
-async function traverse_used_keys(avm, hdkey, batched_function) {
+async function traverse_used_keys(ava, hdkey, batched_function) {
   // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
+  const avm = ava.XChain();
   var index = 0;
   var all_unused = false;
   while (!all_unused || index < SCAN_SIZE) {
@@ -247,8 +249,8 @@ async function traverse_used_keys(avm, hdkey, batched_function) {
       const change_pkh = hdkey_to_pkh(change_child);
       batch.non_change.pkhs.push(pkh);
       batch.change.pkhs.push(change_pkh);
-      const address = pkh_to_avax_address(pkh);
-      const change_address = pkh_to_avax_address(change_pkh);
+      const address = pkh_to_avax_address(ava, pkh);
+      const change_address = pkh_to_avax_address(ava, change_pkh);
       batch.non_change.addresses.push(address);
       batch.change.addresses.push(change_address);
       batch.address_to_path[address] = "0/" + (index + i);
@@ -269,10 +271,10 @@ async function traverse_used_keys(avm, hdkey, batched_function) {
 
 // Given a hdkey (at the account level), sum the UTXO balances
 // under that key.
-async function sum_child_balances(avm, hdkey, log = false) {
+async function sum_child_balances(ava, hdkey, log = false) {
   var balance = new BN(0);
 
-  await traverse_used_keys(avm, hdkey, async batch => {
+  await traverse_used_keys(ava, hdkey, async batch => {
     // Total the balance for all PKHs
     for (const [pkh, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
       var bal = new BN(0);
@@ -280,7 +282,7 @@ async function sum_child_balances(avm, hdkey, log = false) {
         bal = bal.add(batch.utxoset.utxos[utxoid].getOutput().getAmount());
       }
       if (log) {
-        const addr = pkh_to_avax_address(Buffer.from(pkh, 'hex'));
+        const addr = pkh_to_avax_address(ava, Buffer.from(pkh, 'hex'));
         console.error(batch.address_to_path[addr], addr, bal.toString());
       }
       balance = balance.add(bal);
@@ -294,19 +296,19 @@ async function sum_child_balances(avm, hdkey, log = false) {
 // all addresses under that key. This also returns the addresses in path index
 // order, and a dictionary for getting path index from UTXOID. This dictionary
 // is used for determining which paths to sign via the ledger.
-async function prepare_for_transfer(avm, hdkey) {
+async function prepare_for_transfer(ava, hdkey) {
   // Return values
   var utxoset = new AvaJS.UTXOSet();
   var addresses = [];
   var change_addresses = [];
   var utxoid_to_path = {}; // A dictionary from UTXOID to path (change/address)
 
-  await traverse_used_keys(avm, hdkey, batch => {
+  await traverse_used_keys(ava, hdkey, batch => {
     // Update the UTXOID -> index dictionary
     // TODO does this need to be UTXOID -> [index], or does UTXOID -> index suffice?
     // i.e. are we clobbering existing indices?
     for (const [pkh, utxos] of Object.entries(batch.utxoset.addressUTXOs)) {
-      const addr = pkh_to_avax_address(Buffer.from(pkh, 'hex'));
+      const addr = pkh_to_avax_address(ava, Buffer.from(pkh, 'hex'));
       for (const utxoid of Object.keys(utxos)) {
         utxoid_to_path[utxoid] = batch.address_to_path[addr];
       }
@@ -337,18 +339,18 @@ program
   .add_device_option()
   .action(async (address, options) => {
     const ava = ava_js_with_node(options.node);
-    const avm = ava.AVM();
+    const avm = ava.XChain();
 
     if (address === undefined) {
       await with_transport(options, async transport => {
         const ledger = new Ledger(transport);
 
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-        const balance = await sum_child_balances(avm, root_key, options.listAddresses);
+        const balance = await sum_child_balances(ava, root_key, options.listAddresses);
         console.log(balance.toString());
       });
     } else {
-      let result = await avm.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
+      let result = await ava.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
       console.log(result.toString(10, 0));
     }
 });
@@ -359,11 +361,11 @@ program
   .add_node_option()
   .add_device_option()
   .action(async options => {
-    const avm = ava_js_with_node(options.node).AVM();
+    const ava = ava_js_with_node(options.node).XChain();
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-      let result = await get_first_unused_address(avm, root_key, true);
+      let result = await get_first_unused_address(ava, root_key, true);
       console.log(result.non_change);
     });
 });
@@ -423,7 +425,8 @@ program
   .add_node_option()
   .add_device_option()
   .action(async options => {
-    const avm = ava_js_with_node(options.node).AVM();
+    const ava = ava_js_with_node(options.node);
+    const avm = ava.XChain();
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
 
@@ -432,7 +435,7 @@ program
       console.error("Discovering addresses...");
       const non_change_key = root_key.deriveChild(0);
       const change_key = root_key.deriveChild(1);
-      const prepared = await prepare_for_transfer(avm, root_key);
+      const prepared = await prepare_for_transfer(ava, root_key);
 
       const amount = parse_amount(options.amount);
       const toAddress = options.to;
@@ -440,12 +443,21 @@ program
 
       console.error("Getting new change address...");
       // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-      const changeAddress = (await get_first_unused_address(avm, root_key)).change;
+      const changeAddress = (await get_first_unused_address(ava, root_key)).change;
 
       console.error("Building TX...");
+
+      console.log(prepared.utxoset);
+      console.log(amount);
+      console.log(toAddress);
+      console.log(fromAddresses);
+      console.log(changeAddress);
+      console.log(AVAX_ASSET_ID_SERIALIZED.toString("hex"));
       const unsignedTx = await
         avm.buildBaseTx(prepared.utxoset, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
         .catch(log_error_and_exit);
+      console.log ("unsigned transaction:");
+      console.log (unsignedTx.toString("hex"));
       const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await avm.issueTx(signed);

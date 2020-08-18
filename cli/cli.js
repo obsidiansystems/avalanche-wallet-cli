@@ -22,8 +22,6 @@ const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
 
-const DEFAULT_NETWORK_HRP = "everest";
-
 // TODO replace this with something better
 function log_error_and_exit(err) {
   if (err.message === undefined) {
@@ -43,14 +41,27 @@ commander.Command.prototype.add_device_option = function() {
   ;
 }
 
-// Convenience function to add the --node option
-commander.Command.prototype.add_node_option = function() {
-  return this.option("-n, --node <uri>", "node to use", "https://testapi.avax.network");
+commander.Command.prototype.add_network_option = function() {
+  return this.option("--network <network-HRP>", "network name", "denali");
 }
 
-function ava_js_with_node(uri_string) {
-  const uri = URI(uri_string);
-  return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), AvaJS.utils.HRPToNetworkID[DEFAULT_NETWORK_HRP]);
+// Convenience function to add the --node option
+commander.Command.prototype.add_node_option = function() {
+  return this
+    .option("-n, --node <uri>", "node to use", "https://testapi.avax.network")
+    .add_network_option();
+}
+
+function get_network_id_from_hrp(hrp) {
+  const network_id = AvaJS.utils.HRPToNetworkID[hrp];
+  if (network_id === undefined) throw "Network " + hrp + " is not recognized";
+  return network_id;
+}
+
+function ava_js_from_options(options) {
+  const uri = URI(options.node);
+  const network_id = get_network_id_from_hrp(options.network);
+  return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), network_id);
 }
 
 async function get_transport_with_wallet(devices, open, chosen_device, wallet_id) {
@@ -146,16 +157,17 @@ program
   .command("get-address <path>")
   .description("get the address of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
-  .option("--hrp <ascii-text>", "Bech32 Human Readable Part", DEFAULT_NETWORK_HRP)
+  .add_network_option()
   .action(async (path, options) => {
+    get_network_id_from_hrp(options.network); // validate the network
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting public key for path", path);
-      const pubk_hash = await ledger.getWalletAddress(path,options.hrp);
+      const pubk_hash = await ledger.getWalletAddress(path, options.network);
       const base32_hash = bech32.toWords(pubk_hash);
-      const address = bech32.encode(options.hrp, base32_hash);
+      const address = bech32.encode(options.network, base32_hash);
       console.log("X-" + address);
     });
 });
@@ -337,7 +349,7 @@ program
   .add_node_option()
   .add_device_option()
   .action(async (address, options) => {
-    const ava = ava_js_with_node(options.node);
+    const ava = ava_js_from_options(options);
 
     if (address === undefined) {
       await with_transport(options, async transport => {
@@ -359,7 +371,7 @@ program
   .add_node_option()
   .add_device_option()
   .action(async options => {
-    const ava = ava_js_with_node(options.node);
+    const ava = ava_js_from_options(options);
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
@@ -423,7 +435,7 @@ program
   .add_node_option()
   .add_device_option()
   .action(async options => {
-    const ava = ava_js_with_node(options.node);
+    const ava = ava_js_from_options(options);
     const avm = ava.XChain();
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);

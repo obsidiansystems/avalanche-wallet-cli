@@ -184,7 +184,7 @@ async function get_extended_public_key(ledger, deriv_path) {
 
 // Scan addresses and find the first unused address (i.e. the first with no UTXOs)
 async function get_first_unused_address(ava, hdkey, log = false) {
-  var utxoset = new ava.XChain().UTXOSet();
+  var utxoset = new AvaJS.platformvm.UTXOSet();
   var addresses = [];
   var pkhs = [];
   var change_addresses = [];
@@ -232,7 +232,6 @@ function pkh_to_avax_address(ava, pkh) {
 async function traverse_used_keys(ava, hdkey, batched_function) {
   // getUTXOs is slow, so we generate INDEX_RANGE addresses at a time and batch them
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
-  const avm = ava.XChain();
   var index = 0;
   var all_unused = false;
   while (!all_unused || index < SCAN_SIZE) {
@@ -298,7 +297,8 @@ async function sum_child_balances(ava, hdkey, log = false) {
 // is used for determining which paths to sign via the ledger.
 async function prepare_for_transfer(ava, hdkey) {
   // Return values
-  var utxoset = new ava.XChain().UTXOSet();
+  const avm = ava.XChain();
+  var utxoset = new AvaJS.platformvm.UTXOSet();
   var addresses = [];
   var change_addresses = [];
   var utxoid_to_path = {}; // A dictionary from UTXOID to path (change/address)

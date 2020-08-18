@@ -4,122 +4,92 @@
 
 ## Installing dependencies
 
-The repo is currently set up for local dev of ledgerjs.
+### Systems with Nix installed
 
-```
+If you have the package manager https://nixos.org/ installed, just run:
+```bash
 $ nix-shell
-[nix-shell:~]$ yarn install
+[nix-shell:~]$ yarn install --frozen-lockfile
 ```
-### Ubuntu 20.04 LTS Dependencies
+
+### Systems without Nix installed
+
+#### Ubuntu 20.04 LTS Additional Dependencies
 
 Ubuntu user will require several libraries using `apt`. APT is a package tool that should have been installed with the operating system. If not, please see the user documentation for your release.
 
 Update `apt`, Debian's Application Package Tool
-```
+```bash
 $ sudo apt update
 ```
-Install the neccessary libraries using `apt`
+Install the necessary libraries and tools using `apt`
+```bash
+$ sudo apt install libusb-1.0-0-dev libudev1 libudev-dev make g++
 ```
-$ sudo apt install libusb-1.0-0-dev -y
-$ sudo apt install libudev1 -y
-$ sudo apt install libudev-dev -y
-```
+
+You can now follow the rest of the instructions in this section.
+
 #### Installation of NVM
 
-First download the NVM installation script using `curl`:
-```
+NVM is a tool for provisioning particular versions of Node.js. First download the NVM installation script using `curl`:
+```bash
 $ curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash
 ```
 To reflect the changes for the current user session, use the following command:
-```
-$ source ~/.profile
+```bash
+$ export NVM_DIR="$HOME/.nvm"
+$ [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 ```
 
 #### Installation of Node.js
 
 Install the specific node version required using `nvm`:
-```
-$ nvm install 12.14 # this will install node 12.14.1
-```
-Set the particular node version to use:
-```
-$ nvm use 12.14 # this will use node 12.14.1
+```bash
+$ nvm install 12.14.1
+$ nvm use 12.14.1
 ```
 To check the node version, use:
-```
+```bash
 $ node -v
 ```
 
 #### Installation of Yarn
 
-Ubuntu 20.04 LTS has a known issue that can occur when installing `yarn`. To prevent this from happening, we reccommend using the commands:
-```
-$ sudo apt remove cmdtest #removes the offending package
-$ sudo apt remove yarn #removes any yarn versions already installed
-```
-Install the specific yarn version required using `apt-get`:
-```
-$ curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-$ echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-$ sudo apt-get install yarn # this will install yarn 1.22.4
-```
-To check the yarn version, use:
-```
-$ yarn -v
-```
-
-### MacOS Dependencies
-
-#### Installation of NVM (Node Version Manager)
-
-First download the NVM installation script using `curl`:
-```
-$ curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash
-```
-To reflect the changes for the current user session, use the following command:
-```
-$ source ~/.profile
-```
-
-#### Installation of Node.js
-
-Install the specific node version required using `nvm`:
-```
-$ nvm install 12.14 # it will install node 12.14.1 and npm (Node Package Manager)
-```
-Set the particular node version to use:
-```
-$ nvm use 12.14 # it will use node 12.14.1
-```
-To check the node version, use:
-```
-$ node -v
-```
-
-#### Installation of Yarn
-
+> __Note for Ubuntu users:__ Ubuntu 20.04 LTS has a known issue that can occur when installing `yarn`. To prevent this from happening, we recommend using the commands:
+> ```bash
+> $ sudo apt remove cmdtest
+> $ sudo apt remove yarn
+> ```
 Install the specific yarn version required using `npm`:
-```
-$ npm install yarn 1.22.4 # it will install yarn 1.22.4
-```
-To check the yarn version, use:
-```
-$ yarn -v
+```bash
+$ npm install yarn -g
 ```
 
-## Running during dev
+#### Installation of JavaScript dependencies
 
+Run this from the top level directory of this project:
+
+```bash
+$ yarn install --frozen-lockfile
 ```
-$ nix-shell
-[nix-shell:~]$ yarn node cli/cli.js --help
+
+## Running the CLI
+
+```bash
+$ yarn node cli/cli.js --help
+```
+
+You can also omit the `yarn node` portion:
+
+```bash
+$ cli/cli.js --help
 ```
 
 ## Building an executable
 
 This currently doesn't work on NixOS, see: https://github.com/NixOS/nixpkgs/pull/48193/files#diff-329ce6280c48eac47275b02077a2fc62R29
-I was able to make this work in an Ubuntu VM.
+I was able to make this partially work in an Ubuntu VM.
 
-```
-$ nix-shell
-[nix-shell:~]$ yarn build
+```bash
+$ yarn build
 ```

@@ -5,7 +5,7 @@ This directory contains scripts to initialize a local testnet, currently consist
 ## Usage
 
 ```
-$ cd ledger-app-avax/testnet
+$ cd avalanche-wallet-cli/testnet
 $ path/to/avash
 
 avash> runscript testnet.lua

@@ -22,6 +22,8 @@ const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
 
+const DEFAULT_NETWORK_HRP = "everest";
+
 // TODO replace this with something better
 function log_error_and_exit(err) {
   if (err.message === undefined) {
@@ -48,7 +50,7 @@ commander.Command.prototype.add_node_option = function() {
 
 function ava_js_with_node(uri_string) {
   const uri = URI(uri_string);
-  return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), 3);
+  return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), AvaJS.utils.HRPToNetworkID[DEFAULT_NETWORK_HRP]);
 }
 
 async function get_transport_with_wallet(devices, open, chosen_device, wallet_id) {
@@ -144,7 +146,7 @@ program
   .command("get-address <path>")
   .description("get the address of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
-  .option("--hrp <ascii-text>", "Bech32 Human Readable Part", "mainnet")
+  .option("--hrp <ascii-text>", "Bech32 Human Readable Part", DEFAULT_NETWORK_HRP)
   .action(async (path, options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);

@@ -184,7 +184,7 @@ async function get_extended_public_key(ledger, deriv_path) {
 
 // Scan addresses and find the first unused address (i.e. the first with no UTXOs)
 async function get_first_unused_address(ava, hdkey, log = false) {
-  var utxoset = new AvaJS.platformvm.UTXOSet();
+  var utxoset = new AvaJS.avm.UTXOSet();
   var addresses = [];
   var pkhs = [];
   var change_addresses = [];
@@ -299,7 +299,7 @@ async function sum_child_balances(ava, hdkey, log = false) {
 async function prepare_for_transfer(ava, hdkey) {
   // Return values
   const avm = ava.XChain();
-  var utxoset = new AvaJS.platformvm.UTXOSet();
+  var utxoset = new AvaJS.avm.UTXOSet();
   var addresses = [];
   var change_addresses = [];
   var utxoid_to_path = {}; // A dictionary from UTXOID to path (change/address)

@@ -183,7 +183,7 @@ async function get_extended_public_key(ledger, deriv_path) {
 }
 
 // Scan addresses and find the first unused address (i.e. the first with no UTXOs)
-async function get_first_unused_address(ava, hdkey, log = false) {
+async function get_first_unused_address(ava, hdkey) {
   var utxoset = new AvaJS.avm.UTXOSet();
   var addresses = [];
   var pkhs = [];
@@ -295,8 +295,6 @@ async function sum_child_balances(ava, hdkey, log = false) {
 // order, and a dictionary for getting path index from UTXOID. This dictionary
 // is used for determining which paths to sign via the ledger.
 async function prepare_for_transfer(ava, hdkey) {
-  // Return values
-  const avm = ava.XChain();
   var utxoset = new AvaJS.avm.UTXOSet();
   var addresses = [];
   var change_addresses = [];
@@ -338,7 +336,6 @@ program
   .add_device_option()
   .action(async (address, options) => {
     const ava = ava_js_with_node(options.node);
-    const avm = ava.XChain();
 
     if (address === undefined) {
       await with_transport(options, async transport => {
@@ -360,7 +357,7 @@ program
   .add_node_option()
   .add_device_option()
   .action(async options => {
-    const ava = ava_js_with_node(options.node).XChain();
+    const ava = ava_js_with_node(options.node);
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
@@ -452,8 +449,7 @@ program
       console.log(fromAddresses);
       console.log(changeAddress);
       console.log(AVAX_ASSET_ID_SERIALIZED.toString("hex"));
-      const unsignedTx = await
-        avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
+      const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
       console.log ("unsigned transaction:");
       console.log (unsignedTx.toString("hex"));
       const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);

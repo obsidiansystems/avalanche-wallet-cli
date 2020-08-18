@@ -85,14 +85,14 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
   if (found_device === null) {
     throw "No device found with wallet ID " + wallet_id;
   } else {
-    return await open(found_device).catch(log_error_and_exit)
+    return await open(found_device)
   }
 }
 
 async function with_transport(options, f) {
   const transport = options.speculos === undefined
-    ? await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet).catch(log_error_and_exit)
-    : await get_transport_with_wallet([options.speculos], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet).catch(log_error_and_exit);
+    ? await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)
+    : await get_transport_with_wallet([options.speculos], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet);
   return await f(transport).finally(() => transport.close());
 }
 
@@ -114,7 +114,7 @@ program
   .action(async (options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
-      const appDetails = await ledger.getAppConfiguration().catch(log_error_and_exit);
+      const appDetails = await ledger.getAppConfiguration();
       console.log(appDetails.name + " " + appDetails.version + " (commit " + appDetails.commit + ")");
     });
 });
@@ -135,7 +135,7 @@ program
   .action(async (options) => {
     return await with_transport(options, async transport => {
       const ledger = new Ledger(transport);
-      const result = await ledger.getWalletId().catch(log_error_and_exit);
+      const result = await ledger.getWalletId();
       console.log(result.toString("hex"));
     });
 });
@@ -151,7 +151,7 @@ program
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path
       console.error("Getting public key for path", path);
-      const pubk_hash = await ledger.getWalletAddress(path,options.hrp).catch(log_error_and_exit);
+      const pubk_hash = await ledger.getWalletAddress(path,options.hrp);
       const base32_hash = bech32.toWords(pubk_hash);
       const address = bech32.encode(options.hrp, base32_hash);
       console.log("X-" + address);
@@ -175,7 +175,7 @@ program
 
 async function get_extended_public_key(ledger, deriv_path) {
   console.error("Please accept on your ledger device");
-  extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(log_error_and_exit);
+  extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path);
   hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
@@ -257,9 +257,7 @@ async function traverse_used_keys(ava, hdkey, batched_function) {
     }
 
     // Get UTXOs for this batch
-    batch.utxoset = await
-      avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses))
-      .catch(log_error_and_exit);
+    batch.utxoset = await avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses));
 
     // Run the batch function
     batched_function(batch);
@@ -351,7 +349,7 @@ program
         console.log(balance.toString());
       });
     } else {
-      let result = await ava.getBalance(address, AVAX_ASSET_ID).catch(log_error_and_exit);
+      let result = await ava.getBalance(address, AVAX_ASSET_ID);
       console.log(result.toString(10, 0));
     }
 });
@@ -405,7 +403,7 @@ async function sign_with_ledger(ledger, hash, path) {
   const full_path = AVA_BIP32_PREFIX + "/" + path;
   console.error("Signing hash", hash.toString('hex').toUpperCase(), "with path", full_path);
   console.error("Please verify on your ledger device");
-  return await ledger.signHash(full_path, hash).catch(log_error_and_exit);
+  return await ledger.signHash(full_path, hash);
 }
 
 function parse_amount(str) {
@@ -455,8 +453,7 @@ program
       console.log(changeAddress);
       console.log(AVAX_ASSET_ID_SERIALIZED.toString("hex"));
       const unsignedTx = await
-        avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress])
-        .catch(log_error_and_exit);
+        avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
       console.log ("unsigned transaction:");
       console.log (unsignedTx.toString("hex"));
       const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);
@@ -467,11 +464,7 @@ program
 });
 
 async function main() {
-  try {
-    await program.parseAsync(process.argv);
-  } catch (e) {
-    log_error_and_exit(e);
-  }
+  return await program.parseAsync(process.argv).catch(log_error_and_exit);
 }
 
 main();

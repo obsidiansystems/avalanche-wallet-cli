@@ -72,7 +72,7 @@ program
   .addNodeOption()
   .action(async (address, amount, options) => {
   const ava = avaJsWithNode(options.node);
-  const avm = ava.AVM();
+  const avm = ava.XChain();
 
   const amountBN = new BN(amount);
   let txHash = await avm.send(FAUCET_USERNAME, FAUCET_PASSWORD, AVAX_ASSET_ID, amountBN, address, [FAUCET_ADDRESS]).catch(logErrorAndExit);

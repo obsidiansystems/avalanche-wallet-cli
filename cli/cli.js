@@ -464,8 +464,8 @@ program
       console.log(changeAddress);
       console.log(AVAX_ASSET_ID_SERIALIZED.toString("hex"));
       const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
-      console.log ("unsigned transaction:");
-      console.log (unsignedTx.toString("hex"));
+      console.error("Unsigned TX:");
+      console.error(unsignedTx.toBuffer().toString("hex"));
       const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await avm.issueTx(signed);

@@ -42,13 +42,13 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.option("--network <network-HRP>", "network name", "denali");
+  return this.requiredOption("--network <network-HRP>", "network name [denali, everest, local]");
 }
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
   return this
-    .option("-n, --node <uri>", "node to use", "https://testapi.avax.network")
+    .requiredOption("-n, --node <uri>", "node to use (use 'https://testapi.avax.network' for test network)")
     .add_network_option();
 }
 

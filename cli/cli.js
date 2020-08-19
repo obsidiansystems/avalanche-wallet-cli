@@ -360,8 +360,8 @@ program
         console.log(balance.toString());
       });
     } else {
-      let result = await ava.getBalance(address, AVAX_ASSET_ID);
-      console.log(result.toString(10, 0));
+      let result = await ava.XChain().getBalance(address, AVAX_ASSET_ID);
+      console.log(result.balance.toString(10, 0));
     }
 });
 

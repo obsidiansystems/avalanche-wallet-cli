@@ -446,6 +446,8 @@ program
       const unsignedTx = await
         avm.buildBaseTx(prepared.utxoset, amount, [toAddress], fromAddresses, [changeAddress], AVAX_ASSET_ID_SERIALIZED)
         .catch(log_error_and_exit);
+      console.error("Unsigned TX:");
+      console.error(unsignedTx.toBuffer().toString("hex"));
       const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await avm.issueTx(signed);

@@ -457,12 +457,6 @@ program
 
       console.error("Building TX...");
 
-      console.log(prepared.utxoset);
-      console.log(amount);
-      console.log(toAddress);
-      console.log(fromAddresses);
-      console.log(changeAddress);
-      console.log(AVAX_ASSET_ID_SERIALIZED.toString("hex"));
       const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));

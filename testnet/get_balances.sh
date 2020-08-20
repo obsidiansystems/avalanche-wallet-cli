@@ -6,8 +6,8 @@ curl -X POST --data '{
   "id"     : 1,
   "method" :"avm.getBalance",
   "params" :{
-    "address":"X-6Y3kysjF9jnHnYkdS9yGAuoHyae2eNmeV",
-    "assetID":"AVA"
+    "address":"X-local18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u",
+    "assetID":"AVAX"
   }
 }' -H 'content-type:application/json;' $GECKO_HOST/ext/bc/X
 
@@ -17,8 +17,8 @@ curl -X POST --data '{
   "id"     : 1,
   "method" :"avm.getBalance",
   "params" :{
-    "address":"X-3YDcRtaX9Voef9eD5wEDvBDUx9VsV6xhD",
-    "assetID":"AVA"
+    "address":"X-local1r0t6cce8yece0ksdfestg87c8xuhs8fc0mvsfr",
+    "assetID":"AVAX"
   }
 }' -H 'content-type:application/json;' $GECKO_HOST/ext/bc/X
 
@@ -28,7 +28,7 @@ curl -X POST --data '{
   "id"     : 1,
   "method" :"avm.getBalance",
   "params" :{
-    "address":"X-JwFJV5deBqxho3s8FEUxkCSApFL4XK1ha",
-    "assetID":"AVA"
+    "address":"X-local1cj7gnk75hdlu9r3hvrr2eksq8zprmqd8ghxpve",
+    "assetID":"AVAX"
   }
 }' -H 'content-type:application/json;' $GECKO_HOST/ext/bc/X

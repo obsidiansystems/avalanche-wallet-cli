@@ -320,7 +320,7 @@ async function prepare_for_transfer(ava, hdkey) {
   var change_addresses = [];
   var addr_to_path = {};
 
-  await traverse_used_keys(avm, hdkey, batch => {
+  await traverse_used_keys(ava, hdkey, batch => {
     addr_to_path = Object.assign(addr_to_path, batch.address_to_path);
     utxoset = utxoset.union(batch.utxoset);
     addresses = addresses.concat(batch.non_change.addresses);
@@ -378,21 +378,21 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(unsignedTx, addr_to_path, ledger) {
+async function sign_UnsignedTx(ava, unsignedTx, addr_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(baseTx, hash, addr_to_path, ledger);
+  const sigs = await sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger);
   return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(baseTx, hash, addr_to_path, ledger) {
+async function sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger) {
   let path_suffixes = new Set();
   for (let i = 0; i < baseTx.ins.length; i++) {
     const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      path_suffixes.add(addr_to_path[pkh_to_avax_address(sigidxs[j].getSource())]);
+      path_suffixes.add(addr_to_path[pkh_to_avax_address(ava, sigidxs[j].getSource())]);
     }
   }
 
@@ -458,7 +458,7 @@ program
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
-      const prepared = await prepare_for_transfer(avm, root_key);
+      const prepared = await prepare_for_transfer(ava, root_key);
 
       const amount = parse_amount(options.amount);
       const toAddress = options.to;
@@ -473,7 +473,7 @@ program
       const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
-      const signed = await sign_UnsignedTx(unsignedTx, prepared.addr_to_path, ledger);
+      const signed = await sign_UnsignedTx(ava, unsignedTx, prepared.addr_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await avm.issueTx(signed);
       console.log(txid);

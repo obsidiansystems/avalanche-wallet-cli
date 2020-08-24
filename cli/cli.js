@@ -28,6 +28,7 @@ function log_error_and_exit(err) {
   if (err.message === undefined) {
     console.error(err);
   } else {
+    console.error(err.stack);
     console.error(err.message);
   }
   process.exit(1);
@@ -43,7 +44,7 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network-HRP>", "network name [denali, everest, local]", "everest");
+  return this.requiredOption("--network <network>", "network name [denali, everest, local]", "everest");
 }
 
 // Convenience function to add the --node option
@@ -76,38 +77,54 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
     // If the user specifies a particular device, only check that one
     devices = chosen_device === undefined ? devices : [chosen_device];
     console.error("Finding device with wallet ID", wallet_id);
-    // Loop through the devices checking for a matching wallet ID
     for (const i in devices) {
       const device = devices[i];
       process.stderr.write(device + " ");
-      const transport = await open(device).catch(_ => console.error("[Skipped: Couldn't connect]"));
+
+      const transport = await open(device);
       if (transport === undefined) continue;
-      const ledger = new Ledger(transport);
-      const device_wallet_id = await ledger.getWalletId().catch(_ => console.error("[Skipped: Couldn't get wallet ID]"));
-      if (device_wallet_id == undefined) continue;
-      const device_wallet_id_hex = device_wallet_id.toString('hex');
-      process.stderr.write(device_wallet_id_hex);
-      if (device_wallet_id_hex == wallet_id) {
-        console.error(" [Chosen]");
-        found_device = device;
-        break;
-      } else {
-        console.error(" [Skipped: Different wallet ID]");
+      try {
+        const ledger = new Ledger(transport, logger=console.error);
+        const device_wallet_id = await ledger.getWalletId().catch(_ => console.error("[Skipped: Couldn't get wallet ID]"));
+        if (device_wallet_id == undefined) continue;
+        const device_wallet_id_hex = device_wallet_id.toString('hex');
+        process.stderr.write(device_wallet_id_hex);
+        if (device_wallet_id_hex == wallet_id) {
+          console.error(" [Chosen]");
+          found_device = device;
+          break;
+        } else {
+          console.error(" [Skipped: Different wallet ID]");
+        }
+      } catch (e) {
+        console.error("[Skipped: Couldn't connect]");
+      } finally {
+        transport.close();
       }
     }
   }
   if (found_device === null) {
     throw "No device found with wallet ID " + wallet_id;
   } else {
-    return await open(found_device)
+    return found_device;
   }
 }
 
-async function with_transport(options, f) {
-  const transport = options.speculos === undefined
-    ? await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)
-    : await get_transport_with_wallet([options.speculos], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet);
-  return await f(transport).finally(() => transport.close());
+async function makeWithTransport(options) {
+  const [open, found_device] = options.speculos === undefined
+    ? [TransportNodeHid.open, await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)]
+    : [TransportSpeculos.open, await get_transport_with_wallet([{ apduPort: options.speculos }], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet)];
+  return async f => {
+    const transport = await open(found_device);
+    return await f(transport).finally(() => transport.close());
+  }
+}
+
+async function withLedger(options, f) {
+  const withTransport = await makeWithTransport(options);
+  return await withTransport(async transport => {
+    return await f(new Ledger(transport, logger=console.error));
+  });
 }
 
 function requestLedgerAccept() {
@@ -130,8 +147,7 @@ program
   .description("Get details about the running Ledger app")
   .add_device_option()
   .action(async (options) => {
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       const appDetails = await ledger.getAppConfiguration();
       console.log(appDetails.name + " " + appDetails.version + " (commit " + appDetails.commit + ")");
     });
@@ -142,7 +158,7 @@ program
   .description("Get the device model of the connected ledger")
   .add_device_option()
   .action(async (options) => {
-    return await with_transport(options, async transport => {
+    return await (await makeWithTransport(options))(async transport => {
       console.log(transport.deviceModel);
     });
 });
@@ -151,8 +167,7 @@ program
   .command("get-wallet-id")
   .add_device_option()
   .action(async (options) => {
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       const result = await ledger.getWalletId();
       console.log(result.toString("hex"));
     });
@@ -165,8 +180,7 @@ program
   .add_network_option()
   .action(async (path, options) => {
     get_network_id_from_hrp(options.network); // validate the network
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting public key for path", path);
@@ -183,8 +197,7 @@ program
   .description("get the extended public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting extended public key for path", path);
@@ -349,9 +362,7 @@ program
     const ava = ava_js_from_options(options);
 
     if (address === undefined) {
-      await with_transport(options, async transport => {
-        const ledger = new Ledger(transport);
-
+      await withLedger(options, async ledger => {
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, root_key, options.listAddresses);
         console.log(balance.toString());
@@ -369,8 +380,7 @@ program
   .add_device_option()
   .action(async options => {
     const ava = ava_js_from_options(options);
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       let result = await get_first_unused_address(ava, root_key, true);
       console.log(result.non_change);
@@ -403,7 +413,7 @@ async function sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger) {
     const cred = AvaJS.avm.SelectCredentialClass(baseTx.ins[i].getInput().getCredentialID());
     const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      const path_suffix = addr_to_path[pkh_to_avax_address(sigidxs[j].getSource())];
+      const path_suffix = addr_to_path[pkh_to_avax_address(ava, sigidxs[j].getSource())];
       const signval = path_suffix_to_sig_map.get(path_suffix);
       if (signval === undefined) throw "Unable to find signature for " + path_suffix;
       const sig = new AvaJS.common.Signature();
@@ -452,9 +462,7 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options);
     const avm = ava.XChain();
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
-
+    return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");

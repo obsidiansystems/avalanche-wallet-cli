@@ -6,7 +6,6 @@ in
   name = "gecko";
   src = import ./dep/gecko/thunk.nix;
   vendorSha256 = "1z6iy389j5an2qsjfjib2hcal0fpqkj49qarcib5vlgsy7skmnzw";
-  # vendorSha256 = pkgs.lib.fakeSha256;
   doCheck = false;
   buildPhase = ''
     mkdir -p $out

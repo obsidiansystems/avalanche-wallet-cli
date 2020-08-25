@@ -17,8 +17,6 @@ const Ledger = require("@ledgerhq/hw-app-avalanche").default;
 const BinTools = AvaJS.BinTools.getInstance();
 const bech32 = require('bech32');
 
-const AVAX_ASSET_ID = "AVAX"; // TODO changes to AVAX in next release
-const AVAX_ASSET_ID_SERIALIZED = BinTools.cb58Decode("2TrXx5kLGWa9RP3RiYWi7VkmNbppwPU4DCmTdqwuKzGFE7fsvP");
 const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
@@ -478,7 +476,7 @@ program
 
       console.error("Building TX...");
 
-      const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
+      const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, BinTools.cb58Encode(await avm.getAVAXAssetID()), [toAddress], fromAddresses, [changeAddress]);
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
       const signed = await sign_UnsignedTx(ava, unsignedTx, prepared.addr_to_path, ledger);

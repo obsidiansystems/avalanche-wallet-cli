@@ -366,7 +366,9 @@ program
         console.log(balance.toString());
       });
     } else {
-      let result = await ava.XChain().getBalance(address, AVAX_ASSET_ID);
+      let result = await ava.XChain().getBalance(address,
+        BinTools.cb58Encode(await ava.XChain().getAVAXAssetID())
+      );
       console.log(result.balance.toString(10, 0));
     }
 });

@@ -1,8 +1,5 @@
 {
   "name": "ava-wallet-cli",
-  "engines": {
-    "node": "12.14.1"
-  },
   "version": "1.0.0",
   "description": "",
   "main": "index.js",

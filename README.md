@@ -9,6 +9,11 @@
 If you have the package manager https://nixos.org/ installed, just run:
 ```bash
 $ git submodule update --init --recursive
+$(nix-build)/bin/avalanche-ledger-cli
+```
+or, for development purposes:
+```bash
+$ git submodule update --init --recursive
 $ nix-shell
 [nix-shell:~]$ yarn install --frozen-lockfile
 ```

@@ -1,7 +1,9 @@
 {
   "name": "avalanche-wallet-cli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "author": "Obsidian Systems, LLC",
+  "license": "Apache-2.0",
   "bin": {
     "avalanche-ledger-cli": "cli.js",
     "avalanche-ledger-faucet": "faucet.js"

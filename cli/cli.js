@@ -3,6 +3,7 @@
 // Required by ledgerjs
 require("babel-polyfill");
 
+const BipPath = require('bip32-path');
 const HDKey = require('hdkey');
 const createHash = require('create-hash');
 const BN = require("bn.js");
@@ -16,8 +17,6 @@ const Ledger = require("@ledgerhq/hw-app-avalanche").default;
 const BinTools = AvaJS.BinTools.getInstance();
 const bech32 = require('bech32');
 
-const AVAX_ASSET_ID = "AVAX"; // TODO changes to AVAX in next release
-const AVAX_ASSET_ID_SERIALIZED = BinTools.cb58Decode("2TrXx5kLGWa9RP3RiYWi7VkmNbppwPU4DCmTdqwuKzGFE7fsvP");
 const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
@@ -27,6 +26,7 @@ function log_error_and_exit(err) {
   if (err.message === undefined) {
     console.error(err);
   } else {
+    console.error(err.stack);
     console.error(err.message);
   }
   process.exit(1);
@@ -42,13 +42,13 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network-HRP>", "network name [denali, everest, local]");
+  return this.requiredOption("--network <network>", "network name [denali, everest, local]", "everest");
 }
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
   return this
-    .requiredOption("-n, --node <uri>", "node to use (use 'https://testapi.avax.network' for test network)")
+    .requiredOption("-n, --node <uri>", "node to use (use 'https://testapi.avax.network' for test network)", "https://testapi.avax.network")
     .add_network_option();
 }
 
@@ -75,38 +75,58 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
     // If the user specifies a particular device, only check that one
     devices = chosen_device === undefined ? devices : [chosen_device];
     console.error("Finding device with wallet ID", wallet_id);
-    // Loop through the devices checking for a matching wallet ID
     for (const i in devices) {
       const device = devices[i];
       process.stderr.write(device + " ");
-      const transport = await open(device).catch(_ => console.error("[Skipped: Couldn't connect]"));
+
+      const transport = await open(device);
       if (transport === undefined) continue;
-      const ledger = new Ledger(transport);
-      const device_wallet_id = await ledger.getWalletId().catch(_ => console.error("[Skipped: Couldn't get wallet ID]"));
-      if (device_wallet_id == undefined) continue;
-      const device_wallet_id_hex = device_wallet_id.toString('hex');
-      process.stderr.write(device_wallet_id_hex);
-      if (device_wallet_id_hex == wallet_id) {
-        console.error(" [Chosen]");
-        found_device = device;
-        break;
-      } else {
-        console.error(" [Skipped: Different wallet ID]");
+      try {
+        const ledger = new Ledger(transport, logger=console.error);
+        const device_wallet_id = await ledger.getWalletId().catch(_ => console.error("[Skipped: Couldn't get wallet ID]"));
+        if (device_wallet_id == undefined) continue;
+        const device_wallet_id_hex = device_wallet_id.toString('hex');
+        process.stderr.write(device_wallet_id_hex);
+        if (device_wallet_id_hex == wallet_id) {
+          console.error(" [Chosen]");
+          found_device = device;
+          break;
+        } else {
+          console.error(" [Skipped: Different wallet ID]");
+        }
+      } catch (e) {
+        console.error("[Skipped: Couldn't connect]");
+      } finally {
+        transport.close();
       }
     }
   }
   if (found_device === null) {
     throw "No device found with wallet ID " + wallet_id;
   } else {
-    return await open(found_device)
+    return found_device;
   }
 }
 
-async function with_transport(options, f) {
-  const transport = options.speculos === undefined
-    ? await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)
-    : await get_transport_with_wallet([options.speculos], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet);
-  return await f(transport).finally(() => transport.close());
+async function makeWithTransport(options) {
+  const [open, found_device] = options.speculos === undefined
+    ? [TransportNodeHid.open, await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)]
+    : [TransportSpeculos.open, await get_transport_with_wallet([{ apduPort: options.speculos }], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet)];
+  return async f => {
+    const transport = await open(found_device);
+    return await f(transport).finally(() => transport.close());
+  }
+}
+
+async function withLedger(options, f) {
+  const withTransport = await makeWithTransport(options);
+  return await withTransport(async transport => {
+    return await f(new Ledger(transport, logger=console.error));
+  });
+}
+
+function requestLedgerAccept() {
+  console.error("Please accept the prompt on your Ledger device.");
 }
 
 const program = new commander.Command();
@@ -125,8 +145,7 @@ program
   .description("Get details about the running Ledger app")
   .add_device_option()
   .action(async (options) => {
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       const appDetails = await ledger.getAppConfiguration();
       console.log(appDetails.name + " " + appDetails.version + " (commit " + appDetails.commit + ")");
     });
@@ -137,7 +156,7 @@ program
   .description("Get the device model of the connected ledger")
   .add_device_option()
   .action(async (options) => {
-    return await with_transport(options, async transport => {
+    return await (await makeWithTransport(options))(async transport => {
       console.log(transport.deviceModel);
     });
 });
@@ -146,8 +165,7 @@ program
   .command("get-wallet-id")
   .add_device_option()
   .action(async (options) => {
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       const result = await ledger.getWalletId();
       console.log(result.toString("hex"));
     });
@@ -160,11 +178,11 @@ program
   .add_network_option()
   .action(async (path, options) => {
     get_network_id_from_hrp(options.network); // validate the network
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
-      path = AVA_BIP32_PREFIX + "/" + path
+      path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting public key for path", path);
+      requestLedgerAccept();
       const pubk_hash = await ledger.getWalletAddress(path, options.network);
       const base32_hash = bech32.toWords(pubk_hash);
       const address = bech32.encode(options.network, base32_hash);
@@ -177,10 +195,9 @@ program
   .description("get the extended public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
-      path = AVA_BIP32_PREFIX + "/" + path
+      path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting extended public key for path", path);
       const result = await get_extended_public_key(ledger, path);
       console.log(result.publicExtendedKey);
@@ -188,7 +205,7 @@ program
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
-  console.error("Please accept on your ledger device");
+  requestLedgerAccept();
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path);
   hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
@@ -312,19 +329,10 @@ async function prepare_for_transfer(ava, hdkey) {
   var utxoset = new AvaJS.avm.UTXOSet();
   var addresses = [];
   var change_addresses = [];
-  var utxoid_to_path = {}; // A dictionary from UTXOID to path (change/address)
+  var addr_to_path = {};
 
   await traverse_used_keys(ava, hdkey, batch => {
-    // Update the UTXOID -> index dictionary
-    // TODO does this need to be UTXOID -> [index], or does UTXOID -> index suffice?
-    // i.e. are we clobbering existing indices?
-    for (const [pkh, utxos] of Object.entries(batch.utxoset.addressUTXOs)) {
-      const addr = pkh_to_avax_address(ava, Buffer.from(pkh, 'hex'));
-      for (const utxoid of Object.keys(utxos)) {
-        utxoid_to_path[utxoid] = batch.address_to_path[addr];
-      }
-    };
-
+    addr_to_path = Object.assign(addr_to_path, batch.address_to_path);
     utxoset = utxoset.union(batch.utxoset);
     addresses = addresses.concat(batch.non_change.addresses);
     change_addresses = change_addresses.concat(batch.change.addresses);
@@ -338,7 +346,7 @@ async function prepare_for_transfer(ava, hdkey) {
     // buildBaseTx will filter down to the minimum requirement in the order of
     // this array (and it is ordered by increasing path index).
     addresses: change_addresses.concat(addresses),
-    utxoid_to_path: utxoid_to_path,
+    addr_to_path: addr_to_path
   }
 }
 
@@ -352,15 +360,15 @@ program
     const ava = ava_js_from_options(options);
 
     if (address === undefined) {
-      await with_transport(options, async transport => {
-        const ledger = new Ledger(transport);
-
+      await withLedger(options, async ledger => {
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, root_key, options.listAddresses);
         console.log(balance.toString());
       });
     } else {
-      let result = await ava.XChain().getBalance(address, AVAX_ASSET_ID);
+      let result = await ava.XChain().getBalance(address,
+        BinTools.cb58Encode(await ava.XChain().getAVAXAssetID())
+      );
       console.log(result.balance.toString(10, 0));
     }
 });
@@ -372,8 +380,7 @@ program
   .add_device_option()
   .action(async options => {
     const ava = ava_js_from_options(options);
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
+    return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       let result = await get_first_unused_address(ava, root_key, true);
       console.log(result.non_change);
@@ -381,40 +388,58 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(unsignedTx, utxo_id_to_path, ledger) {
+async function sign_UnsignedTx(ava, unsignedTx, addr_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger);
+  const sigs = await sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger);
   return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(baseTx, hash, utxo_id_to_path, ledger) {
-  const sigs = [];
-  // For each tx input (sources of funds)
+async function sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger) {
+  let path_suffixes = new Set();
   for (let i = 0; i < baseTx.ins.length; i++) {
-    const input = baseTx.ins[i];
-    const cred = AvaJS.avm.SelectCredentialClass(input.getInput().getCredentialID());
-    const sigidxs = input.getInput().getSigIdxs();
+    const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      const path = utxo_id_to_path[input.getUTXOID()];
-      const result = await sign_with_ledger(ledger, hash, path);
+      path_suffixes.add(addr_to_path[pkh_to_avax_address(ava, sigidxs[j].getSource())]);
+    }
+  }
+
+  const path_suffix_to_sig_map = await sign_with_ledger(ledger, hash, path_suffixes);
+
+  const sigs = [];
+  for (let i = 0; i < baseTx.ins.length; i++) {
+    const cred = AvaJS.avm.SelectCredentialClass(baseTx.ins[i].getInput().getCredentialID());
+    const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
+    for (let j = 0; j < sigidxs.length; j++) {
+      const path_suffix = addr_to_path[pkh_to_avax_address(ava, sigidxs[j].getSource())];
+      const signval = path_suffix_to_sig_map.get(path_suffix);
+      if (signval === undefined) throw "Unable to find signature for " + path_suffix;
       const sig = new AvaJS.common.Signature();
-      sig.fromBuffer(result.signature);
+      sig.fromBuffer(signval);
       cred.addSignature(sig);
     }
     sigs.push(cred);
   }
+
   return sigs;
 }
 
-async function sign_with_ledger(ledger, hash, path) {
-  // BIP44: m / purpose' / coin_type' / account' / change / address_index
-  const full_path = AVA_BIP32_PREFIX + "/" + path;
-  console.error("Signing hash", hash.toString('hex').toUpperCase(), "with path", full_path);
-  console.error("Please verify on your ledger device");
-  return await ledger.signHash(full_path, hash);
+async function sign_with_ledger(ledger, hash, path_suffixes) {
+  const path_suffixes_arr = Array.from(path_suffixes);
+  console.error("Signing hash", hash.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
+  requestLedgerAccept();
+  const path_suffix_to_sig = await ledger.signHash(
+    BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), hash
+  ).catch(log_error_and_exit);
+
+  console.error("Signatures:");
+  path_suffix_to_sig.forEach((value, key) => {
+    console.error(" ", key + ":", value.toString("hex"));
+  });
+
+  return path_suffix_to_sig;
 }
 
 function parse_amount(str) {
@@ -437,14 +462,10 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options);
     const avm = ava.XChain();
-    return await with_transport(options, async transport => {
-      const ledger = new Ledger(transport);
-
+    return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
-      const non_change_key = root_key.deriveChild(0);
-      const change_key = root_key.deriveChild(1);
       const prepared = await prepare_for_transfer(ava, root_key);
 
       const amount = parse_amount(options.amount);
@@ -457,10 +478,10 @@ program
 
       console.error("Building TX...");
 
-      const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, AVAX_ASSET_ID_SERIALIZED, [toAddress], fromAddresses, [changeAddress]);
+      const unsignedTx = await avm.buildBaseTx(prepared.utxoset, amount, BinTools.cb58Encode(await avm.getAVAXAssetID()), [toAddress], fromAddresses, [changeAddress]);
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
-      const signed = await sign_UnsignedTx(unsignedTx, prepared.utxoid_to_path, ledger);
+      const signed = await sign_UnsignedTx(ava, unsignedTx, prepared.addr_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await avm.issueTx(signed);
       console.log(txid);

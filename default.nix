@@ -49,4 +49,7 @@ let
     buildPhase = "${node-gyp-build}";
   };
 
-in cli-app-avalanche
+in rec { 
+  inherit cli-app-avalanche hw-app-avalanche;
+  gecko = import ./nix/avalanche.nix {};
+}

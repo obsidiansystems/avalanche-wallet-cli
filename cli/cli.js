@@ -111,7 +111,7 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
 async function makeWithTransport(options) {
   const [open, found_device] = options.speculos === undefined
     ? [TransportNodeHid.open, await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)]
-    : [TransportSpeculos.open, await get_transport_with_wallet([{ apduPort: options.speculos }], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet)];
+    : [TransportSpeculos.open, await get_transport_with_wallet([{ apduPort: options.speculos }], TransportSpeculos.open, { buttonPort: 8888, apduPort: options.speculos, automationPort:8899 } , options.wallet)];
   return async f => {
     const transport = await open(found_device);
     return await f(transport).finally(() => transport.close());
@@ -183,7 +183,12 @@ program
       path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting public key for path", path);
       requestLedgerAccept();
+
+      if(options.speculos) {
+        flowAccept(ledger.transport)
+      }
       const pubk_hash = await ledger.getWalletAddress(path, options.network);
+
       const base32_hash = bech32.toWords(pubk_hash);
       const address = bech32.encode(options.network, base32_hash);
       console.log("X-" + address);
@@ -361,6 +366,10 @@ program
 
     if (address === undefined) {
       await withLedger(options, async ledger => {
+
+				if(options.speculos) {
+					flowAccept(ledger.transport)
+				}
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, root_key, options.listAddresses);
         console.log(balance.toString());
@@ -491,5 +500,41 @@ program
 async function main() {
   return await program.parseAsync(process.argv).catch(log_error_and_exit);
 }
+
+function flowAccept(speculos, n) {
+  return new Promise(r => {
+    var prompts = [{}];
+    var subscript = speculos.automationEvents.subscribe({
+      next: evt => {
+				// console.log(evt, "HERE");
+        if (evt.y === 3) {
+          let m = evt.text.match(/^(.*) \(([0-9])\/([0-9])\)$/)
+          if (m) {
+            isFirst = m[2] === '1';
+            isLast = m[2] === m[3];
+            evt.text = m[1];
+          } else {
+            isFirst = true;
+            isLast = true;
+          }
+        }
+        if (isFirst) {
+          prompts[prompts.length-1][evt.y] = evt.text;
+        } else if (evt.y !== 3) {
+          prompts[prompts.length-1][evt.y] = prompts[prompts.length-1][evt.y] + evt.text;
+        }
+        if (evt.y !== 3 && isLast) prompts.push({});
+        if (evt.text !== "Accept") {
+          if (evt.y !== 3) speculos.button("Rr");
+        } else {
+          speculos.button("RLrl");
+          subscript.unsubscribe();
+          r(prompts.slice(-(n+3), -3));
+        }
+      }
+    });
+  });
+}
+
 
 main();

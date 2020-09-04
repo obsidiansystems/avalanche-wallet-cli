@@ -7,6 +7,13 @@ pkgs.buildGoModule {
   preConfigure = ''
      substituteInPlace ./wallets/chains/wallet.go --replace '"github.com/ava-labs/gecko/modules/chains/payments"' "" 
     '';
+
+  overrideModAttrs = old: {
+    # Do it here becuase the src passed into the dependency derivation does't get touched by the above preconfigure
+    preConfigure = ''
+       substituteInPlace ./wallets/chains/wallet.go --replace '"github.com/ava-labs/gecko/modules/chains/payments"' "" 
+      '';
+  };
   buildPhase = ''
     mkdir -p $out
     mkdir -p $out/bin
@@ -15,5 +22,6 @@ pkgs.buildGoModule {
   dontInstall = true;
   doCheck = false;
 
+  # vendorSha256 = pkgs.lib.fakeSha256;
   vendorSha256 = "0zhqhzmw9719857ay11l11jh1vmngjkmgbchqijbr28dw2j52wvz";
 }

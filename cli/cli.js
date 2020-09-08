@@ -36,8 +36,10 @@ function log_error_and_exit(err) {
 commander.Command.prototype.add_device_option = function() {
   return this
     .option("--device <device>", "device to use")
-    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB; overrides --device", parseInt)
     .option("--wallet <wallet-id>", "use a device with this wallet ID")
+    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
+    .option("--speculos-button-port", "(requires --speculos) use the given port for automatically interacting with speculos buttons", parseInt)
+    .option("--speculos-automation-port", "(requires --speculos) use the given port for automatically interacting with speculos screens", parseInt)
   ;
 }
 
@@ -108,10 +110,19 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
   }
 }
 
+function automationEnabled(options) {
+  return options.speculosAutomationPort && options.speculosButtonPort;
+}
+
 async function makeWithTransport(options) {
+  const speculosOpts = {
+    apduPort: options.speculos,
+    buttonPort: options.speculosButtonPort,
+    automationPort: options.speculosAutomationPort,
+  };
   const [open, found_device] = options.speculos === undefined
     ? [TransportNodeHid.open, await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)]
-    : [TransportSpeculos.open, await get_transport_with_wallet([{ apduPort: options.speculos }], TransportSpeculos.open, { buttonPort: 8888, apduPort: options.speculos, automationPort:8899 } , options.wallet)];
+    : [TransportSpeculos.open, await get_transport_with_wallet([speculosOpts], TransportSpeculos.open, speculosOpts, options.wallet)];
   return async f => {
     const transport = await open(found_device);
     return await f(transport).finally(() => transport.close());
@@ -184,9 +195,7 @@ program
       console.error("Getting public key for path", path);
       requestLedgerAccept();
 
-      if (options.speculos) {
-        flowAccept(ledger.transport)
-      }
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const pubk_hash = await ledger.getWalletAddress(path, options.network);
 
       const base32_hash = bech32.toWords(pubk_hash);
@@ -367,9 +376,7 @@ program
     if (address === undefined) {
       await withLedger(options, async ledger => {
 
-        if (options.speculos) {
-          flowAccept(ledger.transport)
-        }
+        if (automationEnabled(options)) flowAccept(ledger.transport);
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, root_key, options.listAddresses);
         console.log(balance.toString());
@@ -497,10 +504,7 @@ program
     });
 });
 
-async function main() {
-  return await program.parseAsync(process.argv).catch(log_error_and_exit);
-}
-
+// For automated testing
 function flowAccept(speculos, n) {
   return new Promise(r => {
     var prompts = [{}];
@@ -535,5 +539,8 @@ function flowAccept(speculos, n) {
   });
 }
 
+async function main() {
+  return await program.parseAsync(process.argv).catch(log_error_and_exit);
+}
 
 main();

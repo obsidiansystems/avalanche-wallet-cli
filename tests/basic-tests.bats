@@ -1,15 +1,11 @@
 source $TEST_ENV
 
-#TODO: Add these as part of $TEST_ENV
-NODE_ADDRESS='http://localhost:9652'
-APDU_PORT='9999'
-
 getAddress(){
-  $CLI get-address --speculos $APDU_PORT --network local '0/1'
+  $CLI get-address local '0/1' $CLI_ARGS
 }
 
 getBalance(){
-  $CLI get-balance --speculos $APDU_PORT -n $NODE_ADDRESS --network local
+  $CLI get-balance $CLI_ARGS
 }
 
 @test "Ledger app extended-key" {

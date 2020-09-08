@@ -11,11 +11,11 @@ let
   test-certs-dir = pkgs.copyPathToStore ./testnet/certs;
 
   createEnvScript = name: env:
-		let setEnvVars = with pkgs.lib; concatStringsSep " && " (attrValues (mapAttrs (k: v: "${k}=${v}") env));
-		in pkgs.writeScriptBin name "${setEnvVars}";
-  
-  mkTestScript = appElf: 
-    let 
+    let setEnvVars = with pkgs.lib; concatStringsSep " && " (attrValues (mapAttrs (k: v: "${k}=${v}") env));
+    in pkgs.writeScriptBin name "${setEnvVars}";
+
+  mkTestScript = appElf:
+    let
       testScriptEnv = {
         "GECKO"=''"${gecko}/bin/avalanche"'';
         "PLUGINS"=''"${gecko}/plugins"'';

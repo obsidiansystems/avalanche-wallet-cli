@@ -1,8 +1,7 @@
 { cli-app-avalanche, gecko, pkgs ? import ./nixpkgs.nix }:
 let
-  cli = cli-app-avalanche;
-  speculos = pkgs.callPackage ./nix/dep/speculos { };
-  test-certs-dir = pkgs.copyPathToStore ./testnet/certs;
+  speculos = pkgs.callPackage ./dep/speculos { };
+  test-certs-dir = pkgs.copyPathToStore ../testnet/certs;
 
   createEnvScript = name: env:
     let setEnvVars = with pkgs.lib; concatStringsSep " && " (attrValues (mapAttrs (k: v: "${k}=${v}") env));
@@ -11,13 +10,13 @@ let
   mkTestScript = appElf:
     let
       testScriptEnv = {
-        "GECKO"=''"${gecko}/bin/avalanche"'';
-        "PLUGINS"=''"${gecko}/plugins"'';
-        "CERTS"=''"${test-certs-dir}"'';
-        "SPECULOS"=''"${speculos.speculos}/bin/speculos"'';
-        "CLI"=''"${cli}/bin/avalanche-ledger-cli"'';
-        "LEDGER_APP"=''"${appElf}"'';
-        "bats"=''"${pkgs.bats}/bin/bats"'';
+        GECKO = "${gecko}/bin/avalanche";
+        PLUGINS = "${gecko}/plugins";
+        CERTS = "${test-certs-dir}";
+        SPECULOS = "${speculos.speculos}/bin/speculos";
+        CLI = "${cli-app-avalanche}/bin/avalanche-ledger-cli";
+        LEDGER_APP = "${appElf}";
+        bats = "${pkgs.bats}/bin/bats";
       };
       test-env-name = "test-env";
       test-env = createEnvScript test-env-name testScriptEnv;

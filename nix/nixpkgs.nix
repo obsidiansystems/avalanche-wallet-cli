@@ -1,8 +1,8 @@
 let
   pkgs = import (builtins.fetchTarball {
     name = "nixos-20-03";
-    url = "https://github.com/NixOS/nixpkgs/archive/20.03.tar.gz";
-    sha256 = "0182ys095dfx02vl2a20j1hz92dx3mfgz2a6fhn31bqlp1wa8hlq";
+    url = https://releases.nixos.org/nixos/20.03/nixos-20.03.2910.42674051d12/nixexprs.tar.xz;
+    sha256 = "1fx13qspanv71b8r2ryc259ml9wmkhkcjv3m84jadbzi2z68qj9i";
   }) {};
   reflex-platform = import (pkgs.fetchFromGitHub {
     owner = "reflex-frp";

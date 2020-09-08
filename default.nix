@@ -5,7 +5,7 @@
   }) {}
 }:
 let
-  gitignoreSrc = pkgs.fetchFromGitHub { 
+  gitignoreSrc = pkgs.fetchFromGitHub {
     owner = "hercules-ci";
     repo = "gitignore";
     rev = "c4662e662462e7bf3c2a968483478a665d00e717";
@@ -24,7 +24,7 @@ let
   '';
 
   mkAvalancheProject = { pname, src, workspaceDependencies ? [], buildPhase ? null }:
-    pkgs.mkYarnPackage { 
+    pkgs.mkYarnPackage {
       inherit pname workspaceDependencies buildPhase;
       src = gitignoreSource src;
       # Is a workspace, so they all share the same yarn.lock
@@ -33,16 +33,16 @@ let
       NIX_CFLAGS_COMPILE = "-I${pkgs.nodejs}/include/node -I${pkgs.lib.getDev pkgs.libusb1}/include/libusb-1.0";
     };
 
-  hw-app-avalanche = mkAvalancheProject { 
+  hw-app-avalanche = mkAvalancheProject {
     pname = "hw-app-avalanche";
-    src = ./hw-app-avalanche; 
+    src = ./hw-app-avalanche;
     buildPhase = ''
       yarn run build
       ${node-gyp-build}
     '';
   };
 
-  cli-app-avalanche = mkAvalancheProject { 
+  cli-app-avalanche = mkAvalancheProject {
     pname = "ava-wallet-cli";
     src = ./cli;
     workspaceDependencies = [hw-app-avalanche];

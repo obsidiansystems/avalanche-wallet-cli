@@ -1,10 +1,16 @@
 { pkgs ? import <nixpkgs> {} }:
 let
   coreth = (import ./coreth.nix) {};
+	fetchThunk = p:
+		if builtins.pathExists (p + /git.json)
+			then pkgs.fetchgit { inherit (builtins.fromJSON (builtins.readFile (p + /git.json))) url rev sha256; }
+		else if builtins.pathExists (p + /github.json)
+			then pkgs.fetchFromGitHub { inherit (builtins.fromJSON (builtins.readFile (p + /github.json))) owner repo rev sha256; }
+		else p;
 in 
   pkgs.buildGoModule {
   name = "gecko";
-  src = import ./dep/gecko/thunk.nix;
+  src = fetchThunk ./dep/gecko;
   # Note, if the package's go.mod file changes, change this to pkgs.lib.fakeSha256
   # or else nix will automatically use the derivation for the matching hash and
   # go mod will complain about you missing packages (when instead, it should be complaining

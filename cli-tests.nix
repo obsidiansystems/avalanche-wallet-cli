@@ -1,4 +1,4 @@
-{ cli-app-avalanche, gecko, pkgs ? import <nixpkgs> {}}:
+{ cli-app-avalanche, gecko, pkgs ? import ./nix/nixpkgs.nix }:
 let
   cli = cli-app-avalanche;
   fetchThunk = p:

@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import ./nixpkgs.nix }:
 let
   coreth = (import ./coreth.nix) {};
 	fetchThunk = p:

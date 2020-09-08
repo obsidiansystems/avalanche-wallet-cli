@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import ./nixpkgs.nix }:
 pkgs.buildGoModule {
   name = "avash";
   src = import ./dep/avash/thunk.nix;

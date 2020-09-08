@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs>{}}:
+{ pkgs ? import ./nixpkgs.nix }:
 let
 	fetchThunk = p:
 		if builtins.pathExists (p + /git.json)

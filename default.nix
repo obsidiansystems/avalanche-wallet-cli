@@ -49,5 +49,8 @@ let
 in rec {
   inherit cli-app-avalanche hw-app-avalanche;
   gecko = import ./nix/avalanche.nix { inherit pkgs; };
-  tests = import ./nix/cli-tests.nix { inherit gecko cli-app-avalanche pkgs; } appElf;
+  tests = import ./nix/cli-tests.nix {
+    inherit gecko cli-app-avalanche pkgs;
+    speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
+  } appElf;
 }

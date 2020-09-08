@@ -1,6 +1,9 @@
-{ cli-app-avalanche, gecko, pkgs ? import ./nixpkgs.nix }:
+{ pkgs ? import ./nixpkgs.nix
+, cli-app-avalanche
+, gecko
+, speculos
+}:
 let
-  speculos = pkgs.callPackage ./dep/speculos { };
   test-certs-dir = pkgs.copyPathToStore ../testnet/certs;
 
   createEnvScript = name: env:
@@ -13,7 +16,7 @@ let
         GECKO = "${gecko}/bin/avalanche";
         PLUGINS = "${gecko}/plugins";
         CERTS = "${test-certs-dir}";
-        SPECULOS = "${speculos.speculos}/bin/speculos";
+        SPECULOS = "${speculos}/bin/speculos";
         CLI = "${cli-app-avalanche}/bin/avalanche-ledger-cli";
         LEDGER_APP = "${appElf}";
         bats = "${pkgs.bats}/bin/bats";

@@ -184,7 +184,7 @@ program
       console.error("Getting public key for path", path);
       requestLedgerAccept();
 
-      if(options.speculos) {
+      if (options.speculos) {
         flowAccept(ledger.transport)
       }
       const pubk_hash = await ledger.getWalletAddress(path, options.network);
@@ -367,9 +367,9 @@ program
     if (address === undefined) {
       await withLedger(options, async ledger => {
 
-				if(options.speculos) {
-					flowAccept(ledger.transport)
-				}
+        if (options.speculos) {
+          flowAccept(ledger.transport)
+        }
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, root_key, options.listAddresses);
         console.log(balance.toString());
@@ -506,7 +506,6 @@ function flowAccept(speculos, n) {
     var prompts = [{}];
     var subscript = speculos.automationEvents.subscribe({
       next: evt => {
-				// console.log(evt, "HERE");
         if (evt.y === 3) {
           let m = evt.text.match(/^(.*) \(([0-9])\/([0-9])\)$/)
           if (m) {

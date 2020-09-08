@@ -1,4 +1,4 @@
-{ cli-app-avalanche, gecko, pkgs ? import ./nix/nixpkgs.nix }:
+{ cli-app-avalanche, gecko, pkgs ? import ./nixpkgs.nix }:
 let
   cli = cli-app-avalanche;
   speculos = pkgs.callPackage ./nix/dep/speculos { };

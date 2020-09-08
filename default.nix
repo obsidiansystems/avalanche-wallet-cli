@@ -1,5 +1,4 @@
-{ pkgs ? import ./nix/nixpkgs.nix
-}:
+{ pkgs ? import ./nix/nixpkgs.nix }:
 let
   gitignoreSrc = pkgs.fetchFromGitHub {
     owner = "hercules-ci";
@@ -47,6 +46,6 @@ let
 
 in rec {
   inherit cli-app-avalanche hw-app-avalanche;
-  gecko = import ./nix/avalanche.nix {};
-  tests = import ./nix/cli-tests.nix { inherit gecko cli-app-avalanche; };
+  gecko = import ./nix/avalanche.nix { inherit pkgs; };
+  tests = import ./nix/cli-tests.nix { inherit gecko cli-app-avalanche pkgs; };
 }

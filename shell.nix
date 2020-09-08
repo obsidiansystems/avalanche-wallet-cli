@@ -1,5 +1,4 @@
-{ pkgs ? import ./nix/nixpkgs.nix
-}:
+{ pkgs ? import ./nix/nixpkgs.nix }:
 let
   nodeVersion = "12.14.1";
   nodeSha256 = "1nvsivl496fgaypbk2pqqh7py29g7wsggyjlqydy1c0q4f24nyw7";

@@ -1,12 +1,6 @@
 { cli-app-avalanche, gecko, pkgs ? import ./nix/nixpkgs.nix }:
 let
   cli = cli-app-avalanche;
-  fetchThunk = p:
-    if builtins.pathExists (p + /git.json)
-      then pkgs.fetchgit { inherit (builtins.fromJSON (builtins.readFile (p + /git.json))) url rev sha256; }
-    else if builtins.pathExists (p + /github.json)
-      then pkgs.fetchFromGitHub { inherit (builtins.fromJSON (builtins.readFile (p + /github.json))) owner repo rev sha256; }
-    else p;
   speculos = pkgs.callPackage ./nix/dep/speculos { };
   test-certs-dir = pkgs.copyPathToStore ./testnet/certs;
 

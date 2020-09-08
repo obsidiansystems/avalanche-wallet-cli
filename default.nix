@@ -48,5 +48,5 @@ let
 in rec {
   inherit cli-app-avalanche hw-app-avalanche;
   gecko = import ./nix/avalanche.nix {};
-  tests = import ./cli-tests.nix { inherit gecko cli-app-avalanche; };
+  tests = import ./nix/cli-tests.nix { inherit gecko cli-app-avalanche; };
 }

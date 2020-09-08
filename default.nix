@@ -24,14 +24,14 @@ let
   '';
 
   mkAvalancheProject = { pname, src, workspaceDependencies ? [], buildPhase ? null }:
-		pkgs.mkYarnPackage { 
-			inherit pname workspaceDependencies buildPhase;
-			src = gitignoreSource src;
-			# Is a workspace, so they all share the same yarn.lock
-			yarnLock = ./yarn.lock;
-			extraBuildInputs = with pkgs; [ nodePackages.node-gyp pkg-config python libusb1 libudev.dev];
-			NIX_CFLAGS_COMPILE = "-I${pkgs.nodejs}/include/node -I${pkgs.lib.getDev pkgs.libusb1}/include/libusb-1.0";
-		};
+    pkgs.mkYarnPackage { 
+      inherit pname workspaceDependencies buildPhase;
+      src = gitignoreSource src;
+      # Is a workspace, so they all share the same yarn.lock
+      yarnLock = ./yarn.lock;
+      extraBuildInputs = with pkgs; [ nodePackages.node-gyp pkg-config python libusb1 libudev.dev];
+      NIX_CFLAGS_COMPILE = "-I${pkgs.nodejs}/include/node -I${pkgs.lib.getDev pkgs.libusb1}/include/libusb-1.0";
+    };
 
   hw-app-avalanche = mkAvalancheProject { 
     pname = "hw-app-avalanche";

@@ -36,8 +36,10 @@ function log_error_and_exit(err) {
 commander.Command.prototype.add_device_option = function() {
   return this
     .option("--device <device>", "device to use")
-    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB; overrides --device", parseInt)
     .option("--wallet <wallet-id>", "use a device with this wallet ID")
+    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
+    .option("--speculos-button-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos buttons", parseInt)
+    .option("--speculos-automation-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos screens", parseInt)
   ;
 }
 
@@ -108,10 +110,19 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
   }
 }
 
+function automationEnabled(options) {
+  return options.speculosAutomationPort && options.speculosButtonPort;
+}
+
 async function makeWithTransport(options) {
+  const speculosOpts = {
+    apduPort: options.speculos,
+    buttonPort: options.speculosButtonPort,
+    automationPort: options.speculosAutomationPort,
+  };
   const [open, found_device] = options.speculos === undefined
     ? [TransportNodeHid.open, await get_transport_with_wallet(await TransportNodeHid.list(), TransportNodeHid.open, options.device, options.wallet)]
-    : [TransportSpeculos.open, await get_transport_with_wallet([{ apduPort: options.speculos }], TransportSpeculos.open, { apduPort: options.speculos } , options.wallet)];
+    : [TransportSpeculos.open, await get_transport_with_wallet([speculosOpts], TransportSpeculos.open, speculosOpts, options.wallet)];
   return async f => {
     const transport = await open(found_device);
     return await f(transport).finally(() => transport.close());
@@ -183,7 +194,10 @@ program
       path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting public key for path", path);
       requestLedgerAccept();
+
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const pubk_hash = await ledger.getWalletAddress(path, options.network);
+
       const base32_hash = bech32.toWords(pubk_hash);
       const address = bech32.encode(options.network, base32_hash);
       console.log("X-" + address);
@@ -361,6 +375,8 @@ program
 
     if (address === undefined) {
       await withLedger(options, async ledger => {
+
+        if (automationEnabled(options)) flowAccept(ledger.transport);
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, root_key, options.listAddresses);
         console.log(balance.toString());
@@ -487,6 +503,42 @@ program
       console.log(txid);
     });
 });
+
+// For automated testing
+function flowAccept(speculos, n) {
+  console.error("Automatically accepting prompt.")
+  return new Promise(r => {
+    var prompts = [{}];
+    var subscript = speculos.automationEvents.subscribe({
+      next: evt => {
+        if (evt.y === 3) {
+          let m = evt.text.match(/^(.*) \(([0-9])\/([0-9])\)$/)
+          if (m) {
+            isFirst = m[2] === '1';
+            isLast = m[2] === m[3];
+            evt.text = m[1];
+          } else {
+            isFirst = true;
+            isLast = true;
+          }
+        }
+        if (isFirst) {
+          prompts[prompts.length-1][evt.y] = evt.text;
+        } else if (evt.y !== 3) {
+          prompts[prompts.length-1][evt.y] = prompts[prompts.length-1][evt.y] + evt.text;
+        }
+        if (evt.y !== 3 && isLast) prompts.push({});
+        if (evt.text !== "Accept") {
+          if (evt.y !== 3) speculos.button("Rr");
+        } else {
+          speculos.button("RLrl");
+          subscript.unsubscribe();
+          r(prompts.slice(-(n+3), -3));
+        }
+      }
+    });
+  });
+}
 
 async function main() {
   return await program.parseAsync(process.argv).catch(log_error_and_exit);

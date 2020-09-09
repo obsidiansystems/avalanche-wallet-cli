@@ -1,15 +1,13 @@
 {
+  "name": "avalanche-wallet-cli",
   "private": true,
   "scripts": {
-    "avalanchejs": "cd avalanche.js && npm install && npm run build",
-    "ledgerjs": "[ \"$(ls -A ledgerjs)\" ] || git submodule update --recursive --init ledgerjs; cd ledgerjs; yarn install --frozen-lockfile && yarn build",
-    "preinstall": "yarn ledgerjs && yarn avalanchejs",
-    "build": "yarn pkg cli"
+    "hw-app-avalanche": "yarn workspace @ledgerhq/hw-app-avalanche install --frozen-lockfile && yarn workspace @ledgerhq/hw-app-avalanche run build",
+    "preinstall": "yarn run hw-app-avalanche"
   },
   "workspaces": [
-    "cli",
-    "ledgerjs/packages/hw-app-avalanche",
-    "avalanche.js"
+    "hw-app-avalanche",
+    "cli"
   ],
   "devDependencies": {
     "pkg": "^4.4.9"

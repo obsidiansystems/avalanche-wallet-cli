@@ -1,18 +1,15 @@
 {
-  "name": "ava-wallet-cli",
+  "name": "avalanche-wallet-cli",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "private": true,
   "author": "Obsidian Systems, LLC",
   "license": "Apache-2.0",
   "bin": {
-    "ava-ledger-cli": "./cli.js"
+    "avalanche-ledger-cli": "cli.js",
+    "avalanche-ledger-faucet": "faucet.js"
   },
   "dependencies": {
-    "@ledgerhq/hw-app-avalanche": "^0.1.0",
+    "@ledgerhq/hw-app-avalanche": "0.1.0",
     "@ledgerhq/hw-transport-node-hid": "^5.21.0",
     "@ledgerhq/hw-transport-node-speculos": "^5.19.1",
     "avalanche": "^2.3.0",

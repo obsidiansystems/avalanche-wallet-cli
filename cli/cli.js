@@ -445,6 +445,10 @@ async function sign_with_ledger(ledger, txbuff, path_suffixes) {
   const path_suffixes_arr = Array.from(path_suffixes);
   console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
   requestLedgerAccept();
+  console.error("Raw bytes:");
+  var str = "";
+  txbuff.forEach(x => str += "0x" + (x < 0x10 ? "0" : "") + x.toString(16) + ", ");
+  console.error(str);
   const path_suffix_to_sig = await ledger.signTransaction(
     BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), txbuff
   ).catch(log_error_and_exit);

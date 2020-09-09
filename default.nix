@@ -46,11 +46,13 @@ let
     buildPhase = "${node-gyp-build}";
   };
 
-in rec {
-  inherit cli-app-avalanche hw-app-avalanche;
   gecko = import ./nix/avalanche.nix { inherit pkgs; };
   tests = import ./tests {
     inherit pkgs appElf cli-app-avalanche gecko;
     speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
   };
+
+in {
+  inherit cli-app-avalanche hw-app-avalanche gecko;
+  tests = tests.test-run;
 }

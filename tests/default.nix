@@ -18,6 +18,9 @@ let
     export TESTS_DIR='${./.}'
     export LEDGER_APP='${if appElf != null then appElf else ""}'
   '' + builtins.readFile ./tests.sh;
-in {
+in rec {
   test-script = pkgs.writeScriptBin "test-script.sh" testScriptText;
+  test-run = pkgs.runCommand "test-run" {} ''
+    ${test-script}/bin/test-script.sh > "$out"
+  '';
 }

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euxo pipefail
+
 #TODO: Verify that all these are set at start time
 # GECKO=
 # PLUGINS=
@@ -7,9 +9,9 @@
 # SPECULOS=
 # LEDGER_APP=
 # CLI=
-if [ -z "$GECKO" ]; then
-  echo "ERROR: UNSET VAR" && exit 1
-fi
+
+OUTDIR="${OUTDIR:-_tests-output}"
+mkdir -p "$OUTDIR"
 
 BUTTON_PORT=8888
 AUTOMATION_PORT=8899
@@ -30,14 +32,22 @@ NODE1_PID=
 
 echo "Starting Node 1"
 #TODO: This can fail without us noticing?
-$NODE_PREFIX $NODE_SHARED --http-port=$NODE_HTTP_PORT --xput-server-port=9255 --staking-port=9155 --staking-tls-key-file=$CERTS/keys1/staker.key --staking-tls-cert-file=$CERTS/keys1/staker.crt &>node1.txt & NODE1_PID=$!
+$NODE_PREFIX $NODE_SHARED \
+  --http-port=$NODE_HTTP_PORT \
+  --xput-server-port=9255 \
+  --staking-port=9155 \
+  --staking-tls-key-file=$CERTS/keys1/staker.key \
+  --staking-tls-cert-file=$CERTS/keys1/staker.crt \
+  --log-dir "$OUTDIR/node1.log" \
+  &> "$OUTDIR/node1.txt" &
+NODE1_PID=$!
 echo "NODE_PID $NODE1_PID"
 sleep 5
 
 # Startup speculos
 SPEC_PID=
 echo "Starting Speculos"
-$SPECULOS $LEDGER_APP --display headless --button-port $BUTTON_PORT --automation-port $AUTOMATION_PORT --apdu-port $APDU_PORT |& (cat > speculos.log) & SPEC_PID=$!
+$SPECULOS $LEDGER_APP --display headless --button-port $BUTTON_PORT --automation-port $AUTOMATION_PORT --apdu-port $APDU_PORT |& (cat > "$OUTDIR/speculos.log") & SPEC_PID=$!
 echo "SPECULOS_PID $SPEC_PID"
 sleep 3
 

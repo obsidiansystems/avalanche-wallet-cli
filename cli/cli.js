@@ -38,8 +38,8 @@ commander.Command.prototype.add_device_option = function() {
     .option("--device <device>", "device to use")
     .option("--wallet <wallet-id>", "use a device with this wallet ID")
     .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
-    .option("--speculos-button-port", "(requires --speculos) use the given port for automatically interacting with speculos buttons", parseInt)
-    .option("--speculos-automation-port", "(requires --speculos) use the given port for automatically interacting with speculos screens", parseInt)
+    .option("--speculos-button-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos buttons", parseInt)
+    .option("--speculos-automation-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos screens", parseInt)
   ;
 }
 
@@ -506,6 +506,7 @@ program
 
 // For automated testing
 function flowAccept(speculos, n) {
+  console.error("Automatically accepting prompt.")
   return new Promise(r => {
     var prompts = [{}];
     var subscript = speculos.automationEvents.subscribe({

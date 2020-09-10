@@ -7,7 +7,7 @@ https://github.com/obsidiansystems/ledger-app-avax.
 Get a fresh copy of this repo:
 
 ```
-git clone https://github.com/obsidiansystems/avalanche-wallet-cli.git avalanche-wallet-cli-test
+git clone https://github.com/obsidiansystems/avalanche-wallet-cli.git avalanche-wallet-cli-test --recursive
 cd avalanche-wallet-cli-test
 git checkout <git commit that you are testing>
 ```

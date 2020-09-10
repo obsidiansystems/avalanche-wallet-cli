@@ -8,6 +8,7 @@ const commander = require("commander");
 const HDKey = require('hdkey');
 const Ledger = require("@ledgerhq/hw-app-avalanche").default;
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
+const TransportSpeculos = require("@ledgerhq/hw-transport-node-speculos").default;
 const URI = require("urijs");
 
 const FAUCET_USERNAME = "faucet";
@@ -15,6 +16,47 @@ const FAUCET_PASSWORD = "good-cub-book";
 const FAUCET_ADDRESS = "X-local18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u";
 const AVAX_ASSET_ID = "AVAX";
 const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
+
+function automationEnabled(options) {
+  return options.speculosAutomationPort && options.speculosButtonPort;
+}
+
+// For automated testing
+function flowAccept(speculos, n) {
+  console.error("Automatically accepting prompt.")
+  return new Promise(r => {
+    var prompts = [{}];
+    var subscript = speculos.automationEvents.subscribe({
+      next: evt => {
+        if (evt.y === 3) {
+          let m = evt.text.match(/^(.*) \(([0-9])\/([0-9])\)$/)
+          if (m) {
+            isFirst = m[2] === '1';
+            isLast = m[2] === m[3];
+            evt.text = m[1];
+          } else {
+            isFirst = true;
+            isLast = true;
+          }
+        }
+        if (isFirst) {
+          prompts[prompts.length-1][evt.y] = evt.text;
+        } else if (evt.y !== 3) {
+          prompts[prompts.length-1][evt.y] = prompts[prompts.length-1][evt.y] + evt.text;
+        }
+        if (evt.y !== 3 && isLast) prompts.push({});
+        if (evt.text !== "Accept") {
+          if (evt.y !== 3) speculos.button("Rr");
+        } else {
+          speculos.button("RLrl");
+          subscript.unsubscribe();
+          r(prompts.slice(-(n+3), -3));
+        }
+      }
+    });
+  });
+}
+
 
 function logErrorAndExit(err) {
   if (err.message === undefined) {
@@ -81,22 +123,39 @@ program
 program
   .command("fund-ledger <amount>")
   .description("Fund the first 5 non-change addresses of a ledger device with <amount>")
+  .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
+  .option("--speculos-button-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos buttons", parseInt)
+  .option("--speculos-automation-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos screens", parseInt)
   .addNodeOption()
   .action(async (amount, options) => {
-  const transport = await TransportNodeHid.open().catch(logErrorAndExit);
+  let transport = null;
+  if(options.speculos) {
+    const speculosOpts = {
+      apduPort: options.speculos,
+      buttonPort: options.speculosButtonPort,
+      automationPort: options.speculosAutomationPort,
+    };
+    transport = await TransportSpeculos.open(speculosOpts).catch(logErrorAndExit);
+  }
+  else {
+    transport = await TransportNodeHid.open().catch(logErrorAndExit);
+  }
   const ledger = new Ledger(transport);
   const ava = avaJsWithNode(options.node);
   const avm = ava.XChain();
 
   const amountBN = new BN(amount);
+
+  if(options.speculos) flowAccept(ledger.transport);
   const non_change_key = await getExtendedPublicKey(ledger, AVA_BIP32_PREFIX + "/0");
   for (let i = 0; i < 5; i++) {
     const key = non_change_key.deriveChild(i);
     const to = hdkey_to_avax_address(key);
     const txHash = await avm.send(FAUCET_USERNAME, FAUCET_PASSWORD, AVAX_ASSET_ID, amountBN, to, [FAUCET_ADDRESS]).catch(logErrorAndExit);
     console.error("Funding", i, to, "TX", txHash.toString());
-    await sleep(2000);
+    await sleep(1000);
   }
+  transport.close();
 });
 
 async function main() {

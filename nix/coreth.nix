@@ -29,13 +29,13 @@ let
     dontInstall = true;
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256:00v1k2dafm9g05ains65j1igfkjfmgymv4nhm5fsjx19178dzj9c";
+    outputHash = "1h73cy0kvc9lqhm2ckwan6lqlmr6dw5pbxp6f8qf6i0frdg1ypxx";
 
   };
 in pkgs.buildGoModule {
     name = "coreth";
     src = "${runGoModTidy pkgs.buildPackages.go_1_14}/patched";
-    modSha256 = "sha256:14hzgjnhw7wxp32xd6b8kqyj1p1pxxklpdvc79qxns0qzvhsmpi7";
+    modSha256 = "sha256:0z8bsk8jfdm4mp6zjl2mnvyp4k1947hakmn66ycm8h5d41awzgdq";
     runVend = true;
     doCheck = false;
     buildPhase = ''

@@ -59,6 +59,7 @@ setupFakeUser() {
 # CERTS=
 # SPECULOS=
 # LEDGER_APP=
+# FAUCET=
 # CLI=
 
 OUTDIR="${OUTDIR:-_tests-output}"

@@ -14,6 +14,7 @@ let
     export CERTS='${test-certs-dir}'
     export SPECULOS='${speculos}/bin/speculos'
     export CLI='${cli-app-avalanche}/bin/avalanche-ledger-cli'
+    export FAUCET='${cli-app-avalanche}/bin/avalanche-ledger-faucet'
     export bats='${pkgs.bats}/bin/bats'
     export TESTS_DIR='${./.}'
     export LEDGER_APP='${if appElf != null then appElf else ""}'

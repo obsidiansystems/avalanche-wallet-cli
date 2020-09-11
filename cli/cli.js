@@ -420,7 +420,7 @@ program
 async function sign_UnsignedTx(ava, unsignedTx, addr_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(ava, baseTx, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
+  const sigs = await sign_BaseTx(ava, baseTx.ins, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
     const result = await ledger.signTransaction(prefix, suffixes, buff);
     return result.signatures;
   });
@@ -432,15 +432,23 @@ async function signHash_UnsignedTx(ava, unsignedTx, addr_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger.signHash);
+  const sigs = await sign_BaseTx(ava, baseTx.ins, hash, addr_to_path, ledger.signHash);
+  return new AvaJS.avm.Tx(unsignedTx, sigs);
+}
+
+async function signHash_UnsignedTxImport(ava, unsignedTx, addr_to_path, ledger) {
+  const txbuff = unsignedTx.toBuffer();
+  const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
+  const baseTx = unsignedTx.transaction;
+  const sigs = await sign_BaseTx(ava, baseTx.importIns, hash, addr_to_path, ledger.signHash);
   return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(ava, baseTx, txbuff, addr_to_path, ledgerSign) {
+async function sign_BaseTx(ava, inputs, txbuff, addr_to_path, ledgerSign) {
   let path_suffixes = new Set();
-  for (let i = 0; i < baseTx.ins.length; i++) {
-    const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
+  for (let i = 0; i < inputs.length; i++) {
+    const sigidxs = inputs[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
       path_suffixes.add(addr_to_path[pkh_to_avax_address(ava, sigidxs[j].getSource())]);
     }
@@ -449,9 +457,9 @@ async function sign_BaseTx(ava, baseTx, txbuff, addr_to_path, ledgerSign) {
   const path_suffix_to_sig_map = await sign_with_ledger(ledgerSign, txbuff, path_suffixes);
 
   const sigs = [];
-  for (let i = 0; i < baseTx.ins.length; i++) {
-    const cred = AvaJS.avm.SelectCredentialClass(baseTx.ins[i].getInput().getCredentialID());
-    const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
+  for (let i = 0; i < inputs.length; i++) {
+    const cred = AvaJS.avm.SelectCredentialClass(inputs[i].getInput().getCredentialID());
+    const sigidxs = inputs[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
       const path_suffix = addr_to_path[pkh_to_avax_address(ava, sigidxs[j].getSource())];
       const signval = path_suffix_to_sig_map.get(path_suffix);
@@ -545,6 +553,53 @@ program
           console.error("Unsigned Export TX:");
           console.error(unsignedExportTx.toBuffer().toString("hex"));
           signedTx = await signHash_UnsignedTx(ava, unsignedExportTx, prepared.addr_to_path, ledger);
+          break;
+        default:
+          console.error("Unrecognised address format");
+          return;
+      }
+      console.error("Issuing TX...");
+      const txid = await avm.issueTx(signedTx);
+      console.log(txid);
+    });
+});
+
+program
+  .command("import")
+  .description("Import AVAX from the P-Chain")
+  .requiredOption("--to <account>", "Recipient account")
+  .add_node_option()
+  .add_device_option()
+  .action(async options => {
+    const ava = ava_js_from_options(options);
+    const avm = ava.XChain();
+    return await withLedger(options, async ledger => {
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+
+      console.error("Discovering addresses...");
+      const prepared = await prepare_for_transfer(ava, root_key);
+
+      const amount = parse_amount(options.amount);
+      const toAddress = options.to;
+      const fromAddresses = [];
+      const changeAddresses = [];
+
+      console.error("Building TX...");
+
+      var signedTx;
+      switch (toAddress.split("-")[0]) {
+        case AvaJS.utils.XChainAlias:
+          const unsignedImportTx = await avm.buildImportTx(
+            prepared.utxoset,
+            [toAddress],
+            AvaJS.utils.PlatformChainID,
+            [toAddress],
+            fromAddresses,
+            changeAddresses
+          );
+          console.error("Unsigned Import TX:");
+          console.error(unsignedImportTx.toBuffer().toString("hex"));
+          signedTx = await signHash_UnsignedTxImport(ava, unsignedImportTx, prepared.addr_to_path, ledger);
           break;
         default:
           console.error("Unrecognised address format");

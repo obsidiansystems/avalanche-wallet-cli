@@ -213,6 +213,7 @@ program
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting extended public key for path", path);
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const result = await get_extended_public_key(ledger, path);
       console.log(result.publicExtendedKey);
     });
@@ -397,6 +398,7 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options);
     return await withLedger(options, async ledger => {
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       let result = await get_first_unused_address(ava, root_key, true);
       console.log(result.non_change);
@@ -409,6 +411,7 @@ async function sign_UnsignedTx(ava, unsignedTx, addr_to_path, ledger) {
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger);
+  console.log(ledger);
   return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
 
@@ -446,6 +449,7 @@ async function sign_with_ledger(ledger, hash, path_suffixes) {
   const path_suffixes_arr = Array.from(path_suffixes);
   console.error("Signing hash", hash.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
   requestLedgerAccept();
+  // if(ledger.transport. ledger.transport.opts.automationPort && ledger.transport.opts.buttonPort) flowAccept(ledger.transport);
   const path_suffix_to_sig = await ledger.signHash(
     BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), hash
   ).catch(log_error_and_exit);
@@ -479,8 +483,8 @@ program
     const ava = ava_js_from_options(options);
     const avm = ava.XChain();
     return await withLedger(options, async ledger => {
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, root_key);
 

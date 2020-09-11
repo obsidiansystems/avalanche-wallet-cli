@@ -153,7 +153,8 @@ program
     const to = hdkey_to_avax_address(key);
     const txHash = await avm.send(FAUCET_USERNAME, FAUCET_PASSWORD, AVAX_ASSET_ID, amountBN, to, [FAUCET_ADDRESS]).catch(logErrorAndExit);
     console.error("Funding", i, to, "TX", txHash.toString());
-    await sleep(1000);
+    // 1500 seems to be the minimum for working in CI
+    await sleep(1500);
   }
   transport.close();
 });

@@ -382,10 +382,23 @@ program
         console.log(balance.toString());
       });
     } else {
-      let result = await ava.XChain().getBalance(address,
-        BinTools.cb58Encode(await ava.XChain().getAVAXAssetID())
-      );
-      console.log(result.balance.toString(10, 0));
+      var result;
+      switch (address[0]) {
+        case AvaJS.utils.XChainAlias:
+          result = (await ava.XChain().getBalance(address,
+            BinTools.cb58Encode(await ava.XChain().getAVAXAssetID())
+          )).balance;
+          break;
+        case AvaJS.utils.PChainAlias:
+          result = (await ava.PChain().getBalance(address,
+            BinTools.cb58Encode(await ava.PChain().getAVAXAssetID())
+          )).balance;
+          break;
+        default:
+          console.error("Unrecognised address format");
+          return;
+      }
+      console.log(result.toString(10, 0));
     }
 });
 

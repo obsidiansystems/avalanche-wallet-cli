@@ -383,7 +383,7 @@ program
       });
     } else {
       var result;
-      switch (address[0]) {
+      switch (address.split("-")[0]) {
         case AvaJS.utils.XChainAlias:
           result = (await ava.XChain().getBalance(address,
             BinTools.cb58Encode(await ava.XChain().getAVAXAssetID())
@@ -519,7 +519,7 @@ program
       console.error("Building TX...");
 
       var signedTx;
-      switch (toAddress[0]) {
+      switch (toAddress.split("-")[0]) {
         case AvaJS.utils.XChainAlias:
           const unsignedTx = await avm.buildBaseTx(
             prepared.utxoset,

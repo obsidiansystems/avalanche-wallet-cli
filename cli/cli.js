@@ -406,14 +406,13 @@ program
 /* Adapted from avm/tx.ts for class UnsignedTx */
 async function sign_UnsignedTx(ava, unsignedTx, addr_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();
-  const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
   const baseTx = unsignedTx.transaction;
-  const sigs = await sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger);
+  const sigs = await sign_BaseTx(ava, baseTx, txbuff, addr_to_path, ledger);
   return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger) {
+async function sign_BaseTx(ava, baseTx, txbuff, addr_to_path, ledger) {
   let path_suffixes = new Set();
   for (let i = 0; i < baseTx.ins.length; i++) {
     const sigidxs = baseTx.ins[i].getInput().getSigIdxs();
@@ -422,7 +421,7 @@ async function sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger) {
     }
   }
 
-  const path_suffix_to_sig_map = await sign_with_ledger(ledger, hash, path_suffixes);
+  const path_suffix_to_sig_map = await sign_with_ledger(ledger, txbuff, path_suffixes);
 
   const sigs = [];
   for (let i = 0; i < baseTx.ins.length; i++) {
@@ -442,20 +441,20 @@ async function sign_BaseTx(ava, baseTx, hash, addr_to_path, ledger) {
   return sigs;
 }
 
-async function sign_with_ledger(ledger, hash, path_suffixes) {
+async function sign_with_ledger(ledger, txbuff, path_suffixes) {
   const path_suffixes_arr = Array.from(path_suffixes);
-  console.error("Signing hash", hash.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
+  console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
   requestLedgerAccept();
-  const path_suffix_to_sig = await ledger.signHash(
-    BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), hash
+  const path_suffix_to_sig = await ledger.signTransaction(
+    BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), txbuff
   ).catch(log_error_and_exit);
 
   console.error("Signatures:");
-  path_suffix_to_sig.forEach((value, key) => {
+  path_suffix_to_sig.signatures.forEach((value, key) => {
     console.error(" ", key + ":", value.toString("hex"));
   });
 
-  return path_suffix_to_sig;
+  return path_suffix_to_sig.signatures;
 }
 
 function parse_amount(str) {

@@ -128,7 +128,7 @@ current value the faucet provides).
 Run `cli/cli.js transfer --to X-A4ZiuDcNizdqojr4XqEBSFx9CmKuXvQSX --amount 100`.
 You'll be prompted to accept a "Provide Extended Public Key" request on your
 ledger. Accept this, then, a couple of seconds later, you should be prompted to
-"Sign Bytes" on the ledger. Check that the long hash on the ledger device
+"Sign Hash" and "Derivation Prefix" on the ledger. Check that the long hash on the ledger device
 matches the hash printed in the terminal. Depending on how your money is stored,
 you may need to sign several times for different paths. Accept them all
 (provided the hashes are correct) and the CLI should print:
@@ -160,7 +160,7 @@ be sure that the web wallet is using the same mnemonic phrase as your ledger
 device. Click the "View Key Phrase" button and verify they match. If they don't
 you must reset the web wallet and create another with the same phrase, and go
 through these instructions again. If they do match, hover over the icon buttons
-next to "View Key Phrase" and click the one which is labeled "Past Addresses".
+next to "View Key Phrase" and click the one which is labeled "HD Addresses".
 You should see a list of all the addresses you've had in the past in this
 wallet, ordered by the index (`#` column). If you have many addresses here, you
 can check they match by running `cli/cli.js get-address 0/N` where you

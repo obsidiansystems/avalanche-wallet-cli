@@ -1,0 +1,8 @@
+{
+  "url": "ssh://git@github.com/obsidiansystems/ledger-app-avalanche.git",
+  "rev": "3f11a5ee6acde9a30c501f06516287bb38b0bd3d",
+  "sha256": "1m8yb8cx677yl9ch4bxapzvxfzlgnqmslgksmg1d6fanvbclp2a7",
+  "private": true,
+  "fetchSubmodules": false,
+  "branch": "jg-verbose-parser"
+}

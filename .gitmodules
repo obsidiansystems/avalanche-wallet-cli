@@ -4,4 +4,7 @@
 	branch = ava
 [submodule "avalanche.js"]
 	path = avalanche.js
-	url = https://github.com/ava-labs/avalanche.js.git
+	url = https://github.com/ava-labs/avalanche.js
+[submodule "hw-app-avalanche"]
+	path = hw-app-avalanche
+	url = https://github.com/obsidiansystems/hw-app-avalanche.git

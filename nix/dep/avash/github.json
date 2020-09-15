@@ -1,8 +1,8 @@
 {
   "owner": "ava-labs",
   "repo": "avash",
-  "branch": "everest",
+  "branch": "master",
   "private": false,
-  "rev": "79d96b9a510181f45a4ff883929ca1d96bacce97",
-  "sha256": "080z4iriy78b2l9ghzcx1k3pqzid7nah7cv4lyrrj8h7mqk9bwma"
+  "rev": "5a6f2e37080f0ac97b7c805180e0fc474d48e777",
+  "sha256": "0d3680mhbazdgl5an5nfh9blqrz7jzl9ks9km9m4z7dhjwr5xcka"
 }

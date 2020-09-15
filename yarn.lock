@@ -1987,10 +1987,10 @@ atob@^2.1.2:
   resolved "https://registry.yarnpkg.com/atob/-/atob-2.1.2.tgz#6d9517eb9e030d2436666651e86bd9f6f13533c9"
   integrity sha512-Wm6ukoaOGJi/73p/cl2GvLjTI5JM1k/O14isD73YML8StrH/7/lRFgmg8nICZgD3bZZvjwCGxtMOD3wWNAu8cg==
 
-avalanche@^2.3.0:
-  version "2.4.3"
-  resolved "https://registry.yarnpkg.com/avalanche/-/avalanche-2.4.3.tgz#1e748fa005b82c45e376848f9cc6e82473ceff08"
-  integrity sha512-eoKmPWyAO4UICAf+OmwUmQuVHjAgWIXoJaC7H6E3KIdblF98wzSGtR85zqNr9NIapWdlVeYqkKut96sDJQrmjA==
+avalanche@^2.5.3:
+  version "2.5.3"
+  resolved "https://registry.yarnpkg.com/avalanche/-/avalanche-2.5.3.tgz#ef8df64eb637a7c0c01b401fe6e34d7644e4cae6"
+  integrity sha512-6s4wvrveQIavEJgz1Xskhv5xV0ZuYTtMeaNJbkB87o9DnHrpp84xehx/rnWJai0dT0NyPjKRoH9xA5APlZ0MiQ==
   dependencies:
     axios "0.19.2"
     bech32 "1.1.4"

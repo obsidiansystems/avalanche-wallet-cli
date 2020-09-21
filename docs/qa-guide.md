@@ -125,26 +125,34 @@ current value the faucet provides).
 
 ## transfer
 
-Run `cli/cli.js transfer --to X-A4ZiuDcNizdqojr4XqEBSFx9CmKuXvQSX --amount 100`.
+Run `cli/cli.js transfer --to X-everest19w5vqx4qkj4veyw7yffswcws94g5snykujej3f --amount 10000000`.
 You'll be prompted to accept a "Provide Extended Public Key" request on your
-ledger. Accept this, then, a couple of seconds later, you should be prompted to
-"Sign Bytes" on the ledger. Check that the long hash on the ledger device
-matches the hash printed in the terminal. Depending on how your money is stored,
-you may need to sign several times for different paths. Accept them all
-(provided the hashes are correct) and the CLI should print:
+ledger. Accept this, then, a couple of seconds later, you should be presented
+with  amount being tranferred and the destination address.  Check that it the
+destination address and amount is what you expect.  Note that since change
+address suppression is not working yet, there will often be two outputs, one
+of which must match your input.
+
+You should then also be presented with the fees associated with the transaction.
+
+Finally, if everything looks right, go ahead and accept the transaction. The
+CLI should print something that looks like this:
 ```
 Issuing TX...
 iFXtVUYyH1jkcptfuJ1DkHhNG3BVW2zYygexXLGFytbCMz6kE
 ```
 Where the last long line is your transaction hash (yours will differ). Go to
 https://explorer.avax.network/tx/iFXtVUYyH1jkcptfuJ1DkHhNG3BVW2zYygexXLGFytbCMz6kE
-(substitute your hash!) and check that 100 AVAX was sent to the account
-X-A4ZiuDcNizdqojr4XqEBSFx9CmKuXvQSX (this is shown in the output section).
+(substitute your hash!) and check that 0.01 AVAX was sent to the account
+X-everest19w5vqx4qkj4veyw7yffswcws94g5snykujej3f (this is shown in the output section).
 
 Note that the value may be much larger than 100, but the difference should be
 sent to another of your addresses (it'll be the output address which isn't
-X-A4ZiuDcNizdqojr4XqEBSFx9CmKuXvQSX). You can run `cli/cli.js get-balance
+X-everest19w5vqx4qkj4veyw7yffswcws94g5snykujej3f). You can run `cli/cli.js get-balance
 --list-addresses` to check that this address did indeed get the leftover funds.
+
+Finally, one should replay these tests and attempt to reject the transaction at
+every prompt.
 
 ## get-address
 
@@ -160,7 +168,7 @@ be sure that the web wallet is using the same mnemonic phrase as your ledger
 device. Click the "View Key Phrase" button and verify they match. If they don't
 you must reset the web wallet and create another with the same phrase, and go
 through these instructions again. If they do match, hover over the icon buttons
-next to "View Key Phrase" and click the one which is labeled "Past Addresses".
+next to "View Key Phrase" and click the one which is labeled "HD Addresses".
 You should see a list of all the addresses you've had in the past in this
 wallet, ordered by the index (`#` column). If you have many addresses here, you
 can check they match by running `cli/cli.js get-address 0/N` where you
@@ -172,9 +180,7 @@ just pick a few.
 
 Run `cli/cli.js get-extended-public-key 0/0`. You should be prompted on your ledger
 device to "Provide Extended Public Key". The path displayed on your ledger
-should match the path printed in the terminal, and the address displayed on your
-ledger should be the same as the address displayed for running `cli/cli.js
-get-address 0/0`. The extended public key returned should look something like:
+should match the path printed in the terminal. The extended public key returned should look something like:
 
 ```
 xpub661MyMwAqRbcFH27nCDjzK2FZdQPs9r4PhxYwANH7CkLqA66YiY2ji4RJVcvg4QQoMRLMyRG8Y3y5c7cCu5fkU1wdUA7pmSZQrJ5rwsQAW1

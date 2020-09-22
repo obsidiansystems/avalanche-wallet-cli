@@ -143,9 +143,7 @@ program
   const ledger = new Ledger(transport);
   const ava = avaJsWithNode(options.node);
   const avm = ava.XChain();
-
   const amountBN = new BN(amount);
-
   if(options.speculos) flowAccept(ledger.transport);
   const non_change_key = await getExtendedPublicKey(ledger, AVA_BIP32_PREFIX + "/0");
   for (let i = 0; i < 5; i++) {

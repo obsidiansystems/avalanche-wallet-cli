@@ -1,0 +1,11 @@
+{
+"jsonrpc":"2.0",
+"id"     :1,
+"method" :"avm.importAVAX",
+"params" :{
+"to":"X-local1r0t6cce8yece0ksdfestg87c8xuhs8fc0mvsfr",
+"sourceChain":"P",
+"username":"test1",
+"password":"good-cub-book"
+    }
+}

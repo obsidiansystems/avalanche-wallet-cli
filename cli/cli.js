@@ -446,6 +446,18 @@ async function signHash_UnsignedTxImport(ava, unsignedTx, addr_to_path, ledger) 
   return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
 
+async function sign_UnsignedTxImport(ava, unsignedTx, addr_to_path, ledger) {
+  const txbuff = unsignedTx.toBuffer();
+  const baseTx = unsignedTx.transaction;
+  // const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
+  // const sigs = await sign_BaseTx(ava, baseTx.importIns, hash, addr_to_path, ledger.signHash);
+  const sigs = await sign_BaseTx(ava, baseTx.importIns, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
+    const result = await ledger.signTransaction(prefix, suffixes, buff);
+    return result.signatures;
+  });
+  return new AvaJS.avm.Tx(unsignedTx, sigs);
+}
+
 /* Adapted from avm/tx.ts for class BaseTx */
 async function sign_BaseTx(ava, inputs, txbuff, addr_to_path, ledgerSign) {
   let path_suffixes = new Set();
@@ -515,6 +527,7 @@ program
     const avm = ava.XChain();
     return await withLedger(options, async ledger => {
       if (automationEnabled(options)) flowAccept(ledger.transport);
+
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, root_key);
@@ -555,7 +568,7 @@ program
           );
           console.error("Unsigned Export TX:");
           console.error(unsignedExportTx.toBuffer().toString("hex"));
-          signedTx = await signHash_UnsignedTx(ava, unsignedExportTx, prepared.addr_to_path, ledger);
+          signedTx = await sign_UnsignedTx(ava, unsignedExportTx, prepared.addr_to_path, ledger);
           break;
         default:
           console.error("Unrecognised address format");
@@ -578,17 +591,12 @@ program
     const avm = ava.XChain();
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, root_key);
-
-      const amount = parse_amount(options.amount);
       const toAddress = options.to;
       const fromAddresses = [];
       const changeAddresses = [];
-
       console.error("Building TX...");
-
       var signedTx;
       switch (toAddress.split("-")[0]) {
         case AvaJS.utils.XChainAlias:
@@ -602,7 +610,7 @@ program
           );
           console.error("Unsigned Import TX:");
           console.error(unsignedImportTx.toBuffer().toString("hex"));
-          signedTx = await signHash_UnsignedTxImport(ava, unsignedImportTx, prepared.addr_to_path, ledger);
+          signedTx = await sign_UnsignedTxImport(ava, unsignedImportTx, prepared.addr_to_path, ledger);
           break;
         default:
           console.error("Unrecognised address format");

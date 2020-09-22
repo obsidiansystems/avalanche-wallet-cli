@@ -1,0 +1,18 @@
+// GetTx
+curl -X POST --data @get-tx.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/X
+
+//Get Addresses
+curl -X POST --data @get-addresses.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/X
+
+//Create pchain addr
+curl -X POST --data @create-pchain.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/P
+
+// Get Balance
+curl -X POST --data @get-balance.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/X
+
+curl -X POST --data @avm-export.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/X
+curl -X POST --data @avm-import.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/X
+
+curl -X POST --data @p-import.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/P
+curl -X POST --data @p-get-balance.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/P
+curl -X POST --data @p-export.json -H 'content-type:application/json;' 127.0.0.1:9652/ext/bc/P

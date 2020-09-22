@@ -1,0 +1,9 @@
+{
+"jsonrpc": "2.0",
+"method": "platform.createAddress",
+"params": {
+"username":"test1",
+"password":"good-cub-book"
+},
+"id": 1
+}

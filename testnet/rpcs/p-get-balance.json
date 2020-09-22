@@ -1,0 +1,9 @@
+{
+"jsonrpc": "2.0",
+"method": "platform.getBalance",
+"params": {
+"address":"P-local1t9l97awsq4ruuyuxayykghvmctp9dq7nqlug3w"
+},
+"id": 1
+}
+

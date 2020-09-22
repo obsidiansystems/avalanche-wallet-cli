@@ -1,0 +1,12 @@
+{
+"jsonrpc": "2.0",
+"method": "platform.importAVAX",
+"params": {
+"to":"P-local1rrkuza9swf33qg2urq2exuve50tdvhh8kxar0y",
+"sourceChain":"X",
+"username":"test1",
+"password":"good-cub-book"
+},
+"id": 1
+}
+

@@ -1,0 +1,8 @@
+{
+"jsonrpc":"2.0",
+"id"     :1,
+"method" :"avm.getTx",
+"params" :{
+"txID":"27KHrEFkjLpVqkT6KZCWvFv5HRe2vPkxFkZF6tqSTMycrUWnq7"
+}
+}

@@ -18,7 +18,7 @@ accounts = {
     wallet = {{
       address = "X-local1r0t6cce8yece0ksdfestg87c8xuhs8fc0mvsfr",
       privateKey = "PrivateKey-2MuCQHXZgxnMNgDShBCK2MJ7WcghPKJU6GERN18mG3inZFZoe4",
-      initialFunds = 20000,
+      initialFunds = 20000000,
     }},
   },
   test2 = {
@@ -27,7 +27,7 @@ accounts = {
     wallet = {{
       address = "X-local1cj7gnk75hdlu9r3hvrr2eksq8zprmqd8ghxpve",
       privateKey = "PrivateKey-VDPdTm6a77KD3ATnwm3hMbzrvK8mvo9fzkQDYWyJ7oaC5g8fC",
-      initialFunds = 30000,
+      initialFunds = 30000000,
     }},
   },
 }

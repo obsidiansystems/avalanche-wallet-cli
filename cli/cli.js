@@ -44,7 +44,7 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network>", "network name [denali, everest, local]", "everest");
+  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "fuji");
 }
 
 // Convenience function to add the --node option
@@ -303,7 +303,7 @@ async function traverse_used_keys(ava, hdkey, batched_function) {
     }
 
     // Get UTXOs for this batch
-    batch.utxoset = await avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses));
+    batch.utxoset = await (await avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses))).utxos;
 
     // Run the batch function
     batched_function(batch);
@@ -437,6 +437,17 @@ async function signHash_UnsignedTx(ava, unsignedTx, addr_to_path, ledger) {
   const sigs = await sign_BaseTx(ava, baseTx.ins, hash, addr_to_path, ledger.signHash);
   return new AvaJS.avm.Tx(unsignedTx, sigs);
 }
+
+async function sign_UnsignedTxImport(ava, unsignedTx, addr_to_path, ledger) {
+  const txbuff = unsignedTx.toBuffer();
+  const baseTx = unsignedTx.transaction;
+  const sigs = await sign_BaseTx(ava, baseTx.importIns, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
+    const result = await ledger.signTransaction(prefix, suffixes, buff);
+    return result.signatures;
+  });
+  return new AvaJS.avm.Tx(unsignedTx, sigs);
+}
+
 
 async function signHash_UnsignedTxImport(ava, unsignedTx, addr_to_path, ledger) {
   const txbuff = unsignedTx.toBuffer();

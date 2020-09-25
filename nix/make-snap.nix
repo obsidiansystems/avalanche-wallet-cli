@@ -1,5 +1,5 @@
 {
-  runCommand, squashfsTools, closureInfo, lib, jq, writeText
+  runCommand, squashfsTools, closureInfo, lib, yq, writeText
 }:
 
 {
@@ -58,7 +58,7 @@
   ];
 
 in runCommand "squashfs.img" {
-  nativeBuildInputs = [ squashfsTools jq ];
+  nativeBuildInputs = [ squashfsTools yq ];
 
   closureInfo = closureInfo {
     rootPaths = [ snap_yaml ];
@@ -72,8 +72,9 @@ in runCommand "squashfs.img" {
     # to the hash part of the store path
     mkdir $root/meta
     version=$(echo $out | cut -d/ -f4 | cut -d- -f1)
-    cat ${snap_yaml} | jq  ". + { version: \"$version\" }" \
+    cat ${snap_yaml} | yq -y "{ name: .name, version: \"$version\" } + ." \
       > $root/meta/snap.yaml
+    cat $root/meta/snap.yaml
   )
 
   (

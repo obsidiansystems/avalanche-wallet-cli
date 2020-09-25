@@ -658,7 +658,7 @@ function flowAccept(speculos, n) {
   });
 }
 
-async function flowMultiPrompt(speculos, prompts, nextPrompt="Next", finalPrompt="Accept") {
+async function flowMultiPrompt(speculos, nextPrompt="Next", finalPrompt="Accept") {
   return await automationStart(speculos, async (speculos, screens) => {
     for ( _ of prompts.slice(0,-1)) {
       const rp = (await acceptPrompts(undefined, nextPrompt)(speculos, screens)).promptList;
@@ -669,6 +669,7 @@ async function flowMultiPrompt(speculos, prompts, nextPrompt="Next", finalPrompt
     return true;
   });
 }
+
 async function main() {
   return await program.parseAsync(process.argv).catch(log_error_and_exit);
 }

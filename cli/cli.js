@@ -302,7 +302,7 @@ async function traverse_used_keys(ava, hdkey, batched_function) {
     }
 
     // Get UTXOs for this batch
-    batch.utxoset = await avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses));
+    batch.utxoset = await (await avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses))).utxos;
 
     // Run the batch function
     batched_function(batch);

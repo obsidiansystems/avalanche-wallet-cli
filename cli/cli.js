@@ -44,7 +44,7 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network>", "network name [denali, everest, local]", "everest");
+  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "fuji");
 }
 
 // Convenience function to add the --node option
@@ -302,7 +302,7 @@ async function traverse_used_keys(ava, hdkey, batched_function) {
     }
 
     // Get UTXOs for this batch
-    batch.utxoset = await avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses));
+    batch.utxoset = await (await avm.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses))).utxos;
 
     // Run the batch function
     batched_function(batch);

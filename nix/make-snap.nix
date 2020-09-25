@@ -74,7 +74,6 @@ in runCommand "squashfs.img" {
     version=$(echo $out | cut -d/ -f4 | cut -d- -f1)
     cat ${snap_yaml} | yq -y "{ name: .name, version: \"$version\" } + ." \
       > $root/meta/snap.yaml
-    cat $root/meta/snap.yaml
   )
 
   (

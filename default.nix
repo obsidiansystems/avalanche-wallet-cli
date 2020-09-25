@@ -49,11 +49,11 @@ let
   makeSnap = pkgs.callPackage ./nix/make-snap.nix {};
   snapPackage = makeSnap {
     meta = {
-      name = "avalanche-ledger-cli";
-      version = "0.1.0";
+      name = "avalanche-cli";
       apps = { 
-        avalanche-ledger-cli = {
+        "avalanche-cli" = {
           command = "usr/" + (pkgs.lib.removePrefix "/nix/" "${cli-app-avalanche}/bin/avalanche-ledger-cli");
+          plugs = [ "network" ];
         };
       };
       plugs = {

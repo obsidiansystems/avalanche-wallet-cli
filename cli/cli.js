@@ -44,7 +44,7 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network>", "network name [denali, everest, local]", "everest");
+  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "fuji");
 }
 
 // Convenience function to add the --node option

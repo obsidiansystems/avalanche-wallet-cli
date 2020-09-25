@@ -6,7 +6,7 @@ const BinTools = AvaJS.BinTools.getInstance();
 const BN = require("bn.js");
 const commander = require("commander");
 const HDKey = require('hdkey');
-const Ledger = require("@ledgerhq/hw-app-avalanche").default;
+const Ledger = require("@obsidiansystems/hw-app-avalanche").default;
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
 const URI = require("urijs");
 

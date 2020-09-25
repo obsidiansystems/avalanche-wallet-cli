@@ -12,7 +12,7 @@ const commander = require("commander");
 const AvaJS = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
 const TransportSpeculos = require("@ledgerhq/hw-transport-node-speculos").default;
-const Ledger = require("@ledgerhq/hw-app-avalanche").default;
+const Ledger = require("@obsidiansystems/hw-app-avalanche").default;
 
 const BinTools = AvaJS.BinTools.getInstance();
 const bech32 = require('bech32');

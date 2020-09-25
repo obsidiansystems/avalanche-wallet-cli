@@ -30,19 +30,10 @@ let
       NIX_CFLAGS_COMPILE = "-I${pkgs.nodejs}/include/node -I${pkgs.lib.getDev pkgs.libusb1}/include/libusb-1.0";
     };
 
-  hw-app-avalanche = mkAvalancheWorkspace {
-    pname = "hw-app-avalanche";
-    src = ./hw-app-avalanche;
-    buildPhase = ''
-      yarn run build
-      ${node-gyp-build}
-    '';
-  };
-
   cli-app-avalanche = mkAvalancheWorkspace {
-    pname = "ava-wallet-cli";
+    pname = "avalanche-wallet-cli";
     src = ./cli;
-    workspaceDependencies = [hw-app-avalanche];
+    workspaceDependencies = [];
     buildPhase = "${node-gyp-build}";
   };
 
@@ -53,7 +44,7 @@ let
   };
 
 in {
-  inherit cli-app-avalanche hw-app-avalanche gecko;
+  inherit cli-app-avalanche gecko;
   tests-full = tests;
   tests = tests.test-run;
 }

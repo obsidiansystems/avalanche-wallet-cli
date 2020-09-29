@@ -2,12 +2,9 @@
   "name": "avalanche-wallet-cli",
   "private": true,
   "scripts": {
-    "hw-app-avalanche": "yarn workspace @ledgerhq/hw-app-avalanche install --frozen-lockfile && yarn workspace @ledgerhq/hw-app-avalanche run build",
     "test": "yarn workspace avalanche-wallet-cli-tests run test",
-    "preinstall": "yarn run hw-app-avalanche"
   },
   "workspaces": [
-    "hw-app-avalanche",
     "tests",
     "cli"
   ],

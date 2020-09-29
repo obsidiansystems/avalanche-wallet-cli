@@ -37,6 +37,26 @@ let
     buildPhase = "${node-gyp-build}";
   };
 
+  makeSnap = pkgs.callPackage ./nix/make-snap.nix {};
+  snapPackage = makeSnap {
+    meta = {
+      name = "avalanche-cli";
+      apps = { 
+        "avalanche-cli" = {
+          command = "usr/" + (pkgs.lib.removePrefix "/nix/" "${cli-app-avalanche}/bin/avalanche-ledger-cli");
+          plugs = [ "network" ];
+        };
+      };
+      plugs = {
+        hidraw = {
+          "usb-vendor" = "2c97";
+          "usb-product" = "0001"; # Probably need to add nano X here if this plug starts being used.
+          "path" = "/dev/hidraw0";
+        };
+      };
+    };
+  };
+
   gecko = import ./nix/avalanche.nix { inherit pkgs; };
   tests = import ./tests {
     inherit pkgs appElf cli-app-avalanche gecko;
@@ -44,7 +64,7 @@ let
   };
 
 in {
-  inherit cli-app-avalanche gecko;
+  inherit cli-app-avalanche gecko snapPackage;
   tests-full = tests;
   tests = tests.test-run;
 }

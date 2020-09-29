@@ -200,6 +200,12 @@ Run `cli/cli.js get-app-details`. This should immediately return with the ledger
 app version and git commit. The git commit should match the version you
 installed.
 
+# Atomic swaps
+
+For any of the following sections, you should also test rejecting the ledger
+prompts at any stage of the `import` or `export` commands, and verify that you
+can repeat the command afterwards.
+
 ## export (X-Chain to P-Chain)
 
 First you should check you have enough funds by running:

@@ -762,6 +762,38 @@ program
   });
 });
 
+program
+  .command("list-validators")
+  .description("")
+  .option("--current", "Return current validators")
+  .option("--pending", "Return pending validators")
+  .add_node_option()
+  .add_device_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const platformapi = ava.PChain()
+  const show_current = options.current || !options.pending
+  const show_pending = options.pending || !options.current
+  var validators = [];
+  if (show_current) {
+    validators = (await platformapi.getCurrentValidators()).validators;
+  }
+  if (show_pending) {
+    validators = validators.concat((await platformapi.getPendingValidators()).validators);
+  }
+  validators.sort((a,b) => b.stakeAmount - a.stakeAmount);
+  validators.forEach(validator => {
+    console.log(validator.nodeID);
+    console.log("  Stake Amount:", (validator.stakeAmount / 1000000000).toString() + " AVAX");
+    console.log("  Delegation Fee:", validator.delegationFee + "%");
+    console.log("  Uptime:", validator.uptime);
+    console.log("  Potential Reward:", validator.potentialReward);
+    console.log("  Start Time:", new Date(validator.startTime * 1000));
+    console.log("  End Time:", new Date(validator.endTime * 1000));
+    console.log("  Delegators:", validator.delegators === null ? 0 : validator.delegators.length);
+  });
+});
+
 // For automated testing
 function flowAccept(speculos, n) {
   console.error("Automatically accepting prompt.")

@@ -38,14 +38,17 @@ transfer(){
   [ "$status" -eq 0 ]
   [[ "$(echo $output | awk '{print $NF}')" == "375000000" ]]
 
-  # echo "Starting Transfer test"
-  run transfer 3000000 $FAKE_USER
-  [ "$status" -eq 0 ]
-  sleep 8
 
-  run getBalance
-  [ "$status" -eq 0 ]
-  echo "$output" 
-  # [[ "$(echo "$output" | awk '{print $NF}')" == "91000000" ]]
-  [[ "$(echo "$output" | awk '{print $NF}')" == "371000000" ]]
+  # echo "Starting Transfer test"
+  # run transfer 3000000 $FAKE_USER
+  # [ "$status" -eq 0 ]
+  # sleep 8
+
+  # echo getBalance
+
+  # run getBalance
+  # [ "$status" -eq 0 ]
+  # echo "$output" 
+  # # [[ "$(echo "$output" | awk '{print $NF}')" == "91000000" ]]
+  # [[ "$(echo "$output" | awk '{print $NF}')" == "371000000" ]]
 }

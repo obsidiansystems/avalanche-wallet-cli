@@ -2,9 +2,24 @@
 
 ![Yarn CI](https://github.com/obsidiansystems/avalanche-wallet-cli/workflows/Yarn%20CI/badge.svg?branch=master)
 
-## Installing dependencies
+## Installing on Linux and Mac with a package manager
 
-### Systems with Nix installed
+### Brew Package Manager (Mac)
+
+```brew tap obsidiansystems/avalanche-wallet-cli
+brew install --HEAD --verbose --debug obsidiansystems/avalanche-wallet-cli/avalanche-wallet-cli
+```
+
+In some cases, users have reported an issue with installing the brew package when Node/NPM/NVM was installed on the host machine by a methed other than brew. For this issue, we recommend that you `brew uninstall avalanche-wallet-cli` and completely remove node modules before retrying the install. You do not need to install node from brew as it will be added as a dependency during the CLI install process.
+
+### Snap Package Manager (Ubuntu)
+
+Download the lastest snap package 
+```
+snap install --devmode avalanche-wallet-cli.snap
+```
+
+### Nix Package Manager (Other)
 
 If you have the package manager https://nixos.org/ installed, just run:
 ```bash
@@ -18,7 +33,7 @@ $ nix-shell
 [nix-shell:~]$ yarn install --frozen-lockfile
 ```
 
-### Systems without Nix installed
+## Building from source
 
 #### Ubuntu 20.04 LTS Additional Dependencies
 
@@ -79,23 +94,10 @@ Run this from the top level directory of this project:
 $ yarn install --frozen-lockfile
 ```
 
+
+
 ## Running the CLI
 
 ```bash
-$ yarn node cli/cli.js --help
-```
-
-You can also omit the `yarn node` portion:
-
-```bash
-$ cli/cli.js --help
-```
-
-## Building an executable
-
-This currently doesn't work on NixOS, see: https://github.com/NixOS/nixpkgs/pull/48193/files#diff-329ce6280c48eac47275b02077a2fc62R29
-I was able to make this partially work in an Ubuntu VM.
-
-```bash
-$ yarn build
+$ avalanche-cli --help
 ```

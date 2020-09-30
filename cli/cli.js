@@ -692,6 +692,76 @@ program
     });
 });
 
+function unix_now() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() + 10);
+  return Math.floor(date / 1000);
+}
+
+function unix_one_year() {
+  const date = new Date();
+  date.setYear(date.getFullYear() + 1);
+  return Math.floor(date / 1000);
+}
+
+program
+  .command("validate")
+  .description("Add a validator")
+  .requiredOption("--amount <amount>", "Amount to stake, specified in nanoAVAX")
+  .option("--start <unixtime>", "Start time", unix_now())
+  .option("--end <unixtime>", "End time", unix_one_year())
+  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
+  .requiredOption("--delegation-fee <fee>", "Delegation fee, percent")
+  .add_node_option()
+  .add_device_option()
+  .action(async options => {
+    const ava = ava_js_from_options(options)
+    const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
+    // TODO parse these properly
+    const startTime = new BN(options.start);
+    const endTime = new BN(options.end);
+    return await withLedger(options, async ledger => {
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+
+      console.error("Discovering addresses...");
+      const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
+
+      const stakeAmount = parse_amount(options.amount);
+      // TODO parse this properly
+      const delegationFee = Number.parseFloat(options.delegationFee);
+      // These are the staking addresses
+      const fromAddresses = prepared.addresses;
+
+      console.error("Getting new change address...");
+      // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+      const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+      // Rewards go to the staking addresses unless otherwise specified
+      const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
+      const nodeID = await ava.Info().getNodeID();
+
+      console.error("Building TX...");
+
+      const unsignedAddValidatorTx = await chain_objects.api.buildAddValidatorTx(
+        prepared.utxoset,
+        fromAddresses, // Return the staked tokens to the staking addresses
+        fromAddresses,
+        [changeAddress],
+        nodeID,
+        startTime,
+        endTime,
+        stakeAmount,
+        rewardAddresses,
+        delegationFee,
+      );
+      console.error("Unsigned Add Validator TX:");
+      console.error(unsignedAddValidatorTx.toBuffer().toString("hex"));
+      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger);
+      console.error("Issuing TX...");
+      const txid = await chain_objects.api.issueTx(signedTx);
+      console.log(txid);
+  });
+});
+
 // For automated testing
 function flowAccept(speculos, n) {
   console.error("Automatically accepting prompt.")

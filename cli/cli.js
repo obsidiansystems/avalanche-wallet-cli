@@ -567,7 +567,7 @@ program
           );
           console.error("Unsigned TX:");
           console.error(unsignedTx.toBuffer().toString("hex"));
-          signedTx = await sign_UnsignedTx(ava, unsignedTx, prepared.addr_to_path, ledger);
+          signedTx = await sign_UnsignedTx(ava, unsignedTx, prepared.addr_to_path, ledger, options);
           break;
         case AvaJS.utils.PChainAlias:
           const unsignedExportTx = await avm.buildExportTx(
@@ -580,7 +580,7 @@ program
           );
           console.error("Unsigned Export TX:");
           console.error(unsignedExportTx.toBuffer().toString("hex"));
-          signedTx = await sign_UnsignedTx(ava, unsignedExportTx, prepared.addr_to_path, ledger);
+          signedTx = await sign_UnsignedTx(ava, unsignedExportTx, prepared.addr_to_path, options, ledger);
           break;
         default:
           console.error("Unrecognised address format");

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
-set +x
+set -euo pipefail
 
 setupFaucet() {
   curl -X POST --data '{
@@ -77,17 +76,20 @@ export SPECULOS_ARGS="--speculos $APDU_PORT --speculos-button-port $BUTTON_PORT 
 export CLI_ARGS="--network local $SPECULOS_ARGS"
 export NODE_ARGS="--node http://localhost:$NODE_HTTP_PORT"
 
-trap "exit" INT TERM ERR
-trap "kill 0" EXIT
+killAll() {
+  if [ -n "$SPEC_PID" ]; then
+    { echo rRrRrRrRrlRLrRrRrRrRrlRLrlRL > /dev/tcp/localhost/5667; } > /dev/null 2>&1 || :
+    sleep 0.3
+    kill $SPEC_PID >& /dev/null
+  fi
+  [ -n "$NODE1_PID" ] && kill $NODE1_PID >& /dev/null
+  [ -n "$NODE2_PID" ] && kill $NODE2_PID >& /dev/null
+}
+trap killAll EXIT
 
-# Startup the node
-NODE1_PID=
-
-# Startup speculos
-SPEC_PID=
 echo "Starting Speculos"
-$SPECULOS $LEDGER_APP --display headless --button-port $BUTTON_PORT --automation-port $AUTOMATION_PORT --apdu-port $APDU_PORT |& (cat > "$OUTDIR/speculos.log") & SPEC_PID=$!
-echo "SPECULOS_PID $SPEC_PID"
+$SPECULOS $LEDGER_APP --display headless --button-port $BUTTON_PORT --automation-port $AUTOMATION_PORT --apdu-port $APDU_PORT |& (cat > "$OUTDIR/speculos.log") &
+SPEC_PID=$!
 
 echo "Starting Node 1"
 #TODO: This can fail without us noticing?
@@ -98,9 +100,8 @@ $NODE_PREFIX $NODE_SHARED \
   --staking-tls-key-file=$CERTS/keys1/staker.key \
   --staking-tls-cert-file=$CERTS/keys1/staker.crt \
   --log-dir "$OUTDIR/node1.log" \
-  &> "$OUTDIR/node1.txt" &
+  &> /dev/null &
 NODE1_PID=$!
-echo "NODE1_PID $NODE1_PID"
 sleep 1
 
 echo "Starting Node 2"
@@ -113,16 +114,16 @@ $NODE_PREFIX $NODE_SHARED \
   --staking-tls-key-file=$CERTS/keys2/staker.key \
   --staking-tls-cert-file=$CERTS/keys2/staker.crt \
   --log-dir "$OUTDIR/node2.log" \
-  &> "$OUTDIR/node2.txt" &
+  &> /dev/null &
 NODE2_PID=$!
-echo "NODE2_PID $NODE2_PID"
 sleep 6
 
 setupFaucet
 setupFakeUser
 
 "$bats" -p "$TESTS_DIR"/*.bats
+bats_result=$?
+
 # "$TESTS_DIR"/basic-tests.sh
 
-kill $SPEC_PID
-kill $NODE1_PID
+exit $bats_result

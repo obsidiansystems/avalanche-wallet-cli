@@ -2,7 +2,7 @@
 
 ![Yarn CI](https://github.com/obsidiansystems/avalanche-wallet-cli/workflows/Yarn%20CI/badge.svg?branch=master)
 
-## Installing on Linux and Mac with a package manager
+## Installing on Mac and Linux
 
 ### Brew Package Manager (Mac)
 
@@ -36,4 +36,10 @@ or, for development purposes:
 $ git submodule update --init --recursive
 $ nix-shell
 [nix-shell:~]$ yarn install --frozen-lockfile
+```
+
+## Running the CLI
+Once installed, the CLI will be available using:
+```bash
+avalanche-cli
 ```

@@ -6,22 +6,27 @@
 
 ### Brew Package Manager (Mac)
 
-```brew tap obsidiansystems/avalanche-wallet-cli
-brew install --HEAD --verbose --debug obsidiansystems/avalanche-wallet-cli/avalanche-wallet-cli
+MacOS users running the [Homebrew Package Manager](www.brew.sh) can run:
+
+```bash
+brew tap obsidiansystems/avalanche-wallet-cli
+
+brew install --HEAD obsidiansystems/avalanche-wallet-cli/avalanche-wallet-cli
 ```
+In a few cases users have reported issues with installing the brew package when node/NPM/NVM was installed on the host machine by a method other than brew. For this issue, we recommend that you use `brew uninstall avalanche-wallet-cli`, completely remove node/NPM/NVM, and retry the install again. You can test whether node still exist by using `node -v` which should return an error. You do not need to reinstall node as it will be added as a dependency during the CLI install process.
 
-In some cases, users have reported an issue with installing the brew package when Node/NPM/NVM was installed on the host machine by a methed other than brew. For this issue, we recommend that you `brew uninstall avalanche-wallet-cli` and completely remove node modules before retrying the install. You do not need to install node from brew as it will be added as a dependency during the CLI install process.
+### Snap Package Manager (Ubuntu and other Linux versions)
 
-### Snap Package Manager (Ubuntu)
+Snap comes out-of-the-box for Ubuntu 16.04 and later. If your host machine does not have snap installed you can find instructions for many Linux distributions from the [official Snapcraft documentaion](https://snapcraft.io/docs). 
 
-Download the lastest snap package 
-```
+To install the CLI, download the lastest snap package from the available release and use:
+```bash
 snap install --devmode avalanche-wallet-cli.snap
 ```
 
 ### Nix Package Manager (Other)
 
-If you have the package manager https://nixos.org/ installed, just run:
+If you have the [Nix package manager](https://nixos.org/) installed, you can install the CLI by running:
 ```bash
 $ git submodule update --init --recursive
 $(nix-build)/bin/avalanche-ledger-cli

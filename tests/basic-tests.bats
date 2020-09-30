@@ -48,6 +48,5 @@ transfer(){
 
   run getBalance
   [ "$status" -eq 0 ]
-  # [[ "$(echo "$output" | awk '{print $NF}')" == "91000000" ]]
-  [[ "$(echo "$output" | awk '{print $NF}')" == "371000000" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "371000000" ]]
 }

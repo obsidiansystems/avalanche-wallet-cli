@@ -1,9 +1,6 @@
 {
 	"name": "avalanche-wallet-cli-tests",
 	"version": "0.1.0",
-	"scripts": {
-		"test": "mocha basic-tests.js --exit --require hooks --config .mocharc.js"
-	},
 	"bin": "run-tests.js",
 	"devDependencies": {
  		"babel-cli": "^6.26.0",

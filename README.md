@@ -17,7 +17,7 @@ In a few cases users have reported issues with installing the brew package when 
 
 ### Snap Package Manager (Ubuntu and other Linux versions)
 
-Snap comes out-of-the-box for Ubuntu 16.04 and later. If your host machine does not have snap installed you can find instructions for many Linux distributions from the [official Snapcraft documentaion](https://snapcraft.io/docs). 
+Snap comes out-of-the-box for Ubuntu 16.04 and later. If your host machine does not have snap installed you can find instructions for many Linux distributions from the [official Snapcraft documentaion](https://snapcraft.io/docs).
 
 To install the CLI, download the lastest snap package from the assets dropdown of the [available releases](https://github.com/obsidiansystems/avalanche-wallet-cli/releases) and use:
 ```bash
@@ -26,14 +26,13 @@ snap install --devmode avalanche-wallet-cli.snap
 
 ### Nix Package Manager (Other)
 
-If you have the [Nix package manager](https://nixos.org/) installed, you can install the CLI by running:
+If you have the [Nix package manager](https://nixos.org/) installed, you can install the CLI by checking out the git repository, and running the following command from the repository's top level directory:
+
 ```bash
-$ git submodule update --init --recursive
 $(nix-build)/bin/avalanche-ledger-cli
 ```
 or, for development purposes:
 ```bash
-$ git submodule update --init --recursive
 $ nix-shell
 [nix-shell:~]$ yarn install --frozen-lockfile
 ```

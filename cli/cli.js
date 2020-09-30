@@ -569,7 +569,6 @@ program
 
       console.error("Building TX...");
 
-      var signedTx;
       const unsignedTx = await chain_objects.api.buildBaseTx(
         prepared.utxoset,
         amount,
@@ -580,7 +579,7 @@ program
       );
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
-      signedTx = await sign_UnsignedTx(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger);
+      const signedTx = await sign_UnsignedTx(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -625,7 +624,6 @@ program
 
       console.error("Building TX...");
 
-      var signedTx;
       const unsignedExportTx = await source_chain_objects.api.buildExportTx(
         prepared.utxoset,
         amount,
@@ -636,7 +634,7 @@ program
       );
       console.error("Unsigned Export TX:");
       console.error(unsignedExportTx.toBuffer().toString("hex"));
-      signedTx = await signing_function(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger);
+      const signedTx = await signing_function(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await source_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -677,7 +675,6 @@ program
 
       console.error("Building TX...");
 
-      var signedTx;
       const unsignedImportTx = await destination_chain_objects.api.buildImportTx(
         prepared.utxoset,
         [toAddress],
@@ -688,7 +685,7 @@ program
       );
       console.error("Unsigned Import TX:");
       console.error(unsignedImportTx.toBuffer().toString("hex"));
-      signedTx = await signing_function(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger);
+      const signedTx = await signing_function(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await destination_chain_objects.api.issueTx(signedTx);
       console.log(txid);

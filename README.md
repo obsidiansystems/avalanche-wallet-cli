@@ -19,7 +19,7 @@ In a few cases users have reported issues with installing the brew package when 
 
 Snap comes out-of-the-box for Ubuntu 16.04 and later. If your host machine does not have snap installed you can find instructions for many Linux distributions from the [official Snapcraft documentaion](https://snapcraft.io/docs). 
 
-To install the CLI, download the lastest snap package from the available release and use:
+To install the CLI, download the lastest snap package from the assets dropdown of the [available releases](https://github.com/obsidiansystems/avalanche-wallet-cli/releases) and use:
 ```bash
 snap install --devmode avalanche-wallet-cli.snap
 ```

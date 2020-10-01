@@ -787,7 +787,8 @@ function parseDateToUnixTime(str, relativeTo) {
   if (relative === false) {
     const millis = Date.parse(str);
     if (isNaN(millis)) {
-      return undefined;
+      console.error("Invalid date");
+      process.exit(1);
     } else {
       return new BN(millis / 1000);
     }
@@ -878,6 +879,26 @@ program
     const startTime = parseDateToUnixTime(options.start, new Date());
     const endTime = parseDateToUnixTime(options.end, new Date());
     const stakeAmount = parseAmountWithError(options.amount);
+    const nodeId = options.nodeId;
+    // Preemptively reject delegations which lie outside the validator time
+    // slot, because the node won't give us an error and the TX will never be
+    // accepted.
+    validators = await chain_objects.api.getCurrentValidators();
+    validator = validators.validators.find(v => v.nodeID === nodeId)
+    if (validator !== undefined) {
+      validatorStartTime = new BN(validator.startTime);
+      validatorEndTime = new BN(validator.endTime);
+      if (startTime.lt(validatorStartTime)) {
+        validatorDate = new Date(validatorStartTime.toNumber() * 1000);
+        delegatorDate = new Date(startTime.toNumber() * 1000);
+        log_error_and_exit("Chosen delegation start time [" + delegatorDate.toString() + "] starts before the validator start time [" + validatorDate.toString() + "].");
+      }
+      if (endTime.gt(validatorEndTime)) {
+        validatorDate = new Date(validatorEndTime.toNumber() * 1000);
+        delegatorDate = new Date(endTime.toNumber() * 1000);
+        log_error_and_exit("Chosen delegation end time [" + delegatorDate.toString() + "] ends after the validator end time [" + validatorDate.toString() + "].");
+      }
+    }
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -892,27 +913,6 @@ program
       const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
       // Rewards go to the staking addresses unless otherwise specified
       const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
-      const nodeId = options.nodeId;
-
-      // Preemptively reject delegations which lie outside the validator time
-      // slot, because the node won't give us an error and the TX will never be
-      // accepted.
-      validators = await chain_objects.api.getCurrentValidators();
-      validator = validators.validators.find(v => v.nodeID === nodeId)
-      if (validator !== undefined) {
-        validatorStartTime = new BN(validator.startTime);
-        validatorEndTime = new BN(validator.endTime);
-        if (startTime < validatorStartTime) {
-          validatorDate = new Date(validatorStartTime * 1000);
-          delegatorDate = new Date(startTime * 1000);
-          log_error_and_exit("Chosen delegation start time [" + delegatorDate.toString() + "] starts before the validator start time [" + validatorDate.toString() + "].");
-        }
-        if (endTime > validatorEndTime) {
-          validatorDate = new Date(validatorEndTime * 1000);
-          delegatorDate = new Date(endTime * 1000);
-          log_error_and_exit("Chosen delegation end time [" + delegatorDate.toString() + "] ends after the validator end time [" + validatorDate.toString() + "].");
-        }
-      }
 
       console.error("Building TX...");
 

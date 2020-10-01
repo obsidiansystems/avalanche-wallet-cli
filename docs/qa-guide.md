@@ -120,16 +120,24 @@ This function can also be used to check the balance of a particular address.
 
 This is done by running `cli/cli.js get-balance X-address` where `X-address`
 sholud be replaced by an address you've funded via the faucet. Provided you
-haven't transferred, the balance of that individual address should be 20000 (the
-current value the faucet provides).
+haven't transferred, the balance of that individual address should be
+1,000,000,000 (the current value the faucet provides).
 
 ## transfer
 
-Run `cli/cli.js transfer --to X-everest19w5vqx4qkj4veyw7yffswcws94g5snykujej3f --amount 10000000`.
+Run
+
+```bash
+export NEW_ADDRESS=$(cli/cli.js get-new-receive-address)
+echo $NEW_ADDRESS
+cli/cli.js transfer --to $NEW_ADDRESS --amount 10000000
+```
+
 You'll be prompted to accept a "Provide Extended Public Key" request on your
 ledger. Accept this, then, a couple of seconds later, you should be presented
-with  amount being tranferred and the destination address.  Check that it the
-destination address and amount is what you expect.  Note that since change
+with the amount being tranferred and the destination address.  Check that it the
+destination address and amount is what you expect. (The destination address
+should match the result of `echo $NEW_ADDRESS`). Note that since change
 address suppression is not working yet, there will often be two outputs, one
 of which must match your input.
 
@@ -143,12 +151,12 @@ iFXtVUYyH1jkcptfuJ1DkHhNG3BVW2zYygexXLGFytbCMz6kE
 ```
 Where the last long line is your transaction hash (yours will differ). Go to
 https://explorer.avax.network/tx/iFXtVUYyH1jkcptfuJ1DkHhNG3BVW2zYygexXLGFytbCMz6kE
-(substitute your hash!) and check that 0.01 AVAX was sent to the account
-X-everest19w5vqx4qkj4veyw7yffswcws94g5snykujej3f (this is shown in the output section).
+(substitute your hash!) and check that 0.01 AVAX was sent to the address
+`$NEW_ADDRESS` (this is shown in the output section).
 
 Note that the value may be much larger than 100, but the difference should be
 sent to another of your addresses (it'll be the output address which isn't
-X-everest19w5vqx4qkj4veyw7yffswcws94g5snykujej3f). You can run `cli/cli.js get-balance
+`$NEW_ADDRESS`). You can run `cli/cli.js get-balance
 --list-addresses` to check that this address did indeed get the leftover funds.
 
 Finally, one should replay these tests and attempt to reject the transaction at
@@ -191,3 +199,144 @@ xpub661MyMwAqRbcFH27nCDjzK2FZdQPs9r4PhxYwANH7CkLqA66YiY2ji4RJVcvg4QQoMRLMyRG8Y3y
 Run `cli/cli.js get-app-details`. This should immediately return with the ledger
 app version and git commit. The git commit should match the version you
 installed.
+
+# Atomic swaps
+
+For any of the following sections, you should also test rejecting the ledger
+prompts at any stage of the `import` or `export` commands, and verify that you
+can repeat the command afterwards.
+
+## export (X-Chain to P-Chain)
+
+First you should check you have enough funds by running:
+```bash
+cli/cli.js get-balance
+```
+
+You should have at least 10,000,000. Also note this value down, we'll be
+checking it later.
+
+```bash
+export P_CHAIN_ADDRESS=$(cli/cli.js get-new-receive-address --chain P)
+echo $P_CHAIN_ADDRESS
+cli/cli.js export --to $P_CHAIN_ADDRESS --amount 5000000
+```
+
+Your ledger will prompt you to `Provide Extended Public Key` for `Derivation
+Path 44'/9000'/0'`. You should accept this prompt. A few seconds later, it
+should prompt you with `Sign Export`. Select `Next`, and you should be prompted
+with the change address and amount. Accept this screen, and you should be
+prompted with `X to P chain`, with the amount, which should be 5000000, and the
+address which should be the same as `$P_CHAIN_ADDRESS`. Verify that it is, and
+select `Next`. The following prompt will be the transaction fee. Accept the
+remainder of the prompts. This should drop the balance on your X-Chain address,
+run:
+
+```bash
+cli/cli.js get-balance
+```
+
+and verify that this value has dropped by 5,000,000 (transfer amount) and the
+transaction fee (whatever the ledger shows, currently 1,000,000).
+
+## import (X-Chain to P-Chain)
+
+Continuing on from the previous section, run
+
+```bash
+cli/cli.js get-balance --chain P
+```
+
+to check the current balance of your P-Chain addresses. Import the funds from
+the X-Chain:
+
+```bash
+cli/cli.js import --to $P_CHAIN_ADDRESS
+```
+
+This will prompt to `Provide Extended Public Key`. Accept this, and the ledger
+will prompt you to `Sign Hash`, with a large warning about the dangerous
+operation. Check that the hash matches the one printed by the CLI (after
+`Signing transaction`). If they match, accept the transaction. You should now
+check that the balance of `$P_CHAIN_ADDRESS` has increased:
+
+```bash
+cli/cli.js get-balance --chain P
+```
+
+This should return your previous balance, plus 5,000,000, minus the transaction
+fee (currently 1,000,000). You should also check the `$P_CHAIN_ADDRESS` balance
+directly:
+
+```bash
+cli/cli.js get-balance $P_CHAIN_ADDRESS
+```
+
+This should be 5,000,000, minus the transaction fee.
+
+## export (P-Chain to X-Chain)
+
+Now we have funds on the P-Chain, we can test swapping them back to the X-Chain.
+Check your current P-Chain balance:
+
+```bash
+cli/cli.js get-balance --chain P
+```
+
+Now export the funds to a new X-Chain address:
+
+```bash
+export X_CHAIN_ADDRESS=$(cli/cli.js get-new-receive-address --chain X)
+echo $X_CHAIN_ADDRESS
+cli/cli.js export --to $X_CHAIN_ADDRESS --amount 3000000
+```
+
+You'll be prompted to `Provide Extended Public Key`, which you should accept.
+The ledger will then prompt you to `Sign Hash`, along with the danger warnings.
+Check that the hash matches the one printed by the CLI (after `Signing
+transaction`). If they match, accept the transaction, and check that your
+P-Chain balance has decreased:
+
+```bash
+cli/cli.js get-balance --chain P
+```
+
+It should have decreased by 3,000,000 (the transfer amount) and also decreased
+by an additional amount equal to the transaction fee, which is currently
+1,000,000.
+
+## import (P-Chain to X-Chain)
+
+Check the balance of your X-Chain addresses, and make a note of the amount:
+
+```bash
+cli/cli.js get-balance --chain X
+```
+
+Import the funds from the P-Chain:
+
+```bash
+cli/cli.js import --to $X_CHAIN_ADDRESS
+```
+
+Again, you'll be prompted to `Provide Extended Public Key`. Accept this prompt,
+and the following prompt should be `Sign Import`. Scroll to `Next` and continue,
+the screen should change to `From P chain` along with the amount you're
+importing (minus the transaction fee, which is shown in the next step). Verify
+that the transaction fee and the amount shown by the ledger add up to equal the
+amount you exported in the previous step (3,000,000). Accept the remaining
+prompts, and check the balance of your X-Chain addresses has increased:
+
+```bash
+cli/cli.js get-balance --chain X
+```
+
+This should have increased by 3,000,000, minus the transaction fee (i.e. it
+should increase by the amount the ledger displayed). You should also check the
+`$X_CHAIN_ADDRESS` balance directly:
+
+```bash
+cli/cli.js get-balance $X_CHAIN_ADDRESS
+```
+
+This should be 3,000,000, minus the transaction fee.

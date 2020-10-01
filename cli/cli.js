@@ -793,6 +793,18 @@ program
   });
 });
 
+program
+  .command("get-min-stake")
+  .description("Get the minimum amount of AVAX required for validation and delegation")
+  .add_node_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const platformapi = ava.PChain()
+  const min_stake = await platformapi.getMinStake();
+  console.log("Min validator stake:", min_stake.minValidatorStake.toString(), "nanoAVAX");
+  console.log("Min delegator stake:", min_stake.minDelegatorStake.toString(), "nanoAVAX");
+});
+
 // For automated testing
 function flowAccept(speculos, n) {
   console.error("Automatically accepting prompt.")

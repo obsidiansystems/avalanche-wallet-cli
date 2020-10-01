@@ -763,6 +763,81 @@ program
 });
 
 program
+  .command("delegate")
+  .description("Delegate stake to a validator")
+  .requiredOption("--amount <amount>", "Amount to stake, specified in nanoAVAX")
+  .option("--start <unixtime>", "Start time", unix_now())
+  .option("--end <unixtime>", "End time", unix_one_year())
+  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
+  .requiredOption("--node-id <node-id>", "ID of the node to delegate to")
+  .add_node_option()
+  .add_device_option()
+  .action(async options => {
+    const ava = ava_js_from_options(options)
+    const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
+    // TODO parse these properly
+    const startTime = new BN(options.start);
+    const endTime = new BN(options.end);
+    return await withLedger(options, async ledger => {
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+
+      console.error("Discovering addresses...");
+      const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
+
+      const stakeAmount = parse_amount(options.amount);
+      // These are the staking addresses
+      const fromAddresses = prepared.addresses;
+
+      console.error("Getting new change address...");
+      // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+      const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+      // Rewards go to the staking addresses unless otherwise specified
+      const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
+      const nodeId = options.nodeId;
+
+      // Preemptively reject delegations which lie outside the validator time
+      // slot, because the node won't give us an error and the TX will never be
+      // accepted.
+      validators = await chain_objects.api.getCurrentValidators();
+      validator = validators.validators.find(v => v.nodeID === nodeId)
+      if (validator !== undefined) {
+        validatorStartTime = new BN(validator.startTime);
+        validatorEndTime = new BN(validator.endTime);
+        if (startTime < validatorStartTime) {
+          validatorDate = new Date(validatorStartTime * 1000);
+          delegatorDate = new Date(startTime * 1000);
+          log_error_and_exit("Chosen delegation start time [" + delegatorDate.toString() + "] starts before the validator start time [" + validatorDate.toString() + "].");
+        }
+        if (endTime > validatorEndTime) {
+          validatorDate = new Date(validatorEndTime * 1000);
+          delegatorDate = new Date(endTime * 1000);
+          log_error_and_exit("Chosen delegation end time [" + delegatorDate.toString() + "] ends after the validator end time [" + validatorDate.toString() + "].");
+        }
+      }
+
+      console.error("Building TX...");
+
+      const unsignedAddDelegatorTx = await chain_objects.api.buildAddDelegatorTx(
+        prepared.utxoset,
+        fromAddresses, // Return the staked tokens to the staking addresses
+        fromAddresses,
+        [changeAddress],
+        nodeId,
+        startTime,
+        endTime,
+        stakeAmount,
+        rewardAddresses,
+      );
+      console.error("Unsigned Add Delegator TX:");
+      console.error(unsignedAddDelegatorTx.toBuffer().toString("hex"));
+      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger);
+      console.error("Issuing TX...");
+      const txid = await chain_objects.api.issueTx(signedTx);
+      console.log(txid);
+  });
+});
+
+program
   .command("list-validators")
   .description("List validators")
   .option("--current", "Return current validators")

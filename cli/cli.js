@@ -805,6 +805,30 @@ program
   console.log("Min delegator stake:", min_stake.minDelegatorStake.toString(), "nanoAVAX");
 });
 
+program
+  .command("get-default-fee")
+  .description("Get the default TX fee for this chain")
+  .add_node_option()
+  .add_chain_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const chain_objects = make_chain_objects(ava, options.chain)
+  const fee = chain_objects.api.getDefaultTxFee();
+  console.log(fee.toString(), "nanoAVAX");
+});
+
+program
+  .command("get-fee")
+  .description("Get the TX fee for this chain")
+  .add_node_option()
+  .add_chain_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const chain_objects = make_chain_objects(ava, options.chain)
+  const fee = chain_objects.api.getTxFee();
+  console.log(fee.toString(), "nanoAVAX");
+});
+
 // For automated testing
 function flowAccept(speculos, n) {
   console.error("Automatically accepting prompt.")

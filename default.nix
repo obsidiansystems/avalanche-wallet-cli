@@ -30,7 +30,7 @@ let
       NIX_CFLAGS_COMPILE = "-I${pkgs.nodejs}/include/node -I${pkgs.lib.getDev pkgs.libusb1}/include/libusb-1.0";
     };
 
-  cli-app-avalanche = mkAvalancheProject {
+  cli-app-avalanche = mkAvalancheWorkspace {
     pname = "ava-wallet-cli";
     src = ./cli;
     buildPhase = "${node-gyp-build}";

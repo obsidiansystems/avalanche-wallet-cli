@@ -815,14 +815,20 @@ program
     const startTime = parseDateToUnixTime(options.start, new Date());
     const endTime = parseDateToUnixTime(options.end, new Date());
     const stakeAmount = parseAmountWithError(options.amount);
+    const delegationFee = Number.parseFloat(options.delegationFee);
+    if (delegationFee < 2) {
+      console.error("The minimum delegation fee is 2%.");
+      process.exit(1);
+    } else if (delegationFee > 100) {
+      console.error("The delegation fee cannot be higher than 100%.");
+      process.exit(1);
+    }
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
 
-      // TODO parse this properly
-      const delegationFee = Number.parseFloat(options.delegationFee);
       // These are the staking addresses
       const fromAddresses = prepared.addresses;
 

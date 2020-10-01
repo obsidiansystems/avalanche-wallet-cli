@@ -534,8 +534,8 @@ function parseAmountWithError(str) {
   const amount = parseAmount(str);
   if (amount === false) {
     console.error("Couldn't parse the given amount.");
-    console.error("Amounts can be specified with units, and missing units will be treated as nanoAVAX:");
-    console.error("   100     -> 100 nanoAVAX");
+    console.error("Amounts can be specified with units, and missing units will be treated as AVAX:");
+    console.error("   100     -> 100 AVAX");
     console.error("   1.5AVAX -> 1,500,000,000 nanoAVAX");
     console.error("   25nAVAX -> 25 nanoAVAX");
     console.error("nanoAVAX amounts must be whole integers, and AVAX amounts can't be specified past 9 decimal places.");
@@ -546,7 +546,7 @@ function parseAmountWithError(str) {
 }
 
 // Amount returned is in nanoAVAX. Returns 'false' if parsing failed for any
-// reason. Defaults to nanoAVAX if no units are given.
+// reason. Defaults to AVAX if no units are given.
 function parseAmount(str) {
   if (str.length === 0) return false;
   var pastDecimal = false;
@@ -571,7 +571,6 @@ function parseAmount(str) {
   switch (remainingString) {
     case "nAVAX":
     case "nanoAVAX":
-    case "":
       if (fractionalPart === "") {
         return new BN(integerPart)
       } else {
@@ -579,6 +578,7 @@ function parseAmount(str) {
       }
       break;
     case "AVAX":
+    case "":
       const mkExp = n => (new BN(10)).pow(new BN(n));
       const i = (new BN(integerPart)).mul(mkExp(9));
       const exponent = 9 - fractionalPart.length;
@@ -595,7 +595,7 @@ function parseAmount(str) {
 program
   .command("transfer")
   .description("Transfer AVAX between addresses")
-  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -641,7 +641,7 @@ program
 program
   .command("export")
   .description("Export AVAX to another chain")
-  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -803,7 +803,7 @@ function parseDateToUnixTime(str, relativeTo) {
 program
   .command("validate")
   .description("Add a validator")
-  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
@@ -866,7 +866,7 @@ program
 program
   .command("delegate")
   .description("Delegate stake to a validator")
-  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")

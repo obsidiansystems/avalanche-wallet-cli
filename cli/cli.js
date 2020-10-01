@@ -692,24 +692,67 @@ program
     });
 });
 
-function unix_now() {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() + 10);
-  return Math.floor(date / 1000);
+// Parse a relative date, i.e. something like: 1d15m, 1d1h, 10m
+// Returns 'false' if parsing failed, otherwise returns an object with 'days',
+// 'hours', and 'mins'. The keys will be missing if the user did not specify
+// them.
+function parseRelativeDate(str) {
+  var digits = "";
+  var obj = new Object();
+  if (str.length === 0) return false;
+  for (var i = 0; i < str.length; i++) {
+    const c = str.charAt(i);
+    if (c >= "0" && c <= "9") {
+      digits += c;
+    } else if (c === "d") {
+      if (obj.days !== undefined) return false;
+      if (digits === "") return false
+      obj.days = parseInt(digits);
+      digits = "";
+    } else if (c === "h") {
+      if (obj.hours !== undefined) return false;
+      if (digits === "") return false
+      obj.hours = parseInt(digits);
+      digits = "";
+    } else if (c === "m") {
+      if (obj.mins !== undefined) return false;
+      if (digits === "") return false
+      obj.mins = parseInt(digits);
+      digits = "";
+    } else {
+      return false;
+    }
+  }
+  // If we have leftover digits, parsing failed
+  if (digits !== "") return false;
+  return obj;
 }
 
-function unix_one_year() {
-  const date = new Date();
-  date.setYear(date.getFullYear() + 1);
-  return Math.floor(date / 1000);
+// Parse a date like string to unix time. If the given date is relative, the
+// returned time is relative to the given date "relativeTo".
+function parseDateToUnixTime(str, relativeTo) {
+  const relative = parseRelativeDate(str)
+  if (relative === false) {
+    const millis = Date.parse(str);
+    if (isNaN(millis)) {
+      return undefined;
+    } else {
+      return new BN(millis / 1000);
+    }
+  } else {
+    mins = relative.mins === undefined ? 0 : relative.mins;
+    hours = relative.hours === undefined ? 0 : relative.hours;
+    days = relative.days === undefined ? 0 : relative.days;
+    return new BN((Math.floor(relativeTo.getTime() / 1000)) + 60 * (mins + 60 * (hours + 24 * days)));
+  }
 }
 
 program
   .command("validate")
   .description("Add a validator")
   .requiredOption("--amount <amount>", "Amount to stake, specified in nanoAVAX")
-  .option("--start <unixtime>", "Start time", unix_now())
-  .option("--end <unixtime>", "End time", unix_one_year())
+  .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
+  .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
   .requiredOption("--delegation-fee <fee>", "Delegation fee, percent")
   .add_node_option()
@@ -717,9 +760,8 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    // TODO parse these properly
-    const startTime = new BN(options.start);
-    const endTime = new BN(options.end);
+    const startTime = parseDateToUnixTime(options.start, new Date());
+    const endTime = parseDateToUnixTime(options.end, new Date());
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -766,8 +808,8 @@ program
   .command("delegate")
   .description("Delegate stake to a validator")
   .requiredOption("--amount <amount>", "Amount to stake, specified in nanoAVAX")
-  .option("--start <unixtime>", "Start time", unix_now())
-  .option("--end <unixtime>", "End time", unix_one_year())
+  .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
+  .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
   .requiredOption("--node-id <node-id>", "ID of the node to delegate to")
   .add_node_option()
@@ -775,9 +817,8 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    // TODO parse these properly
-    const startTime = new BN(options.start);
-    const endTime = new BN(options.end);
+    const startTime = parseDateToUnixTime(options.start, new Date());
+    const endTime = parseDateToUnixTime(options.end, new Date());
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 

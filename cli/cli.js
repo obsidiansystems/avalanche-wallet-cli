@@ -764,11 +764,10 @@ program
 
 program
   .command("list-validators")
-  .description("")
+  .description("List validators")
   .option("--current", "Return current validators")
   .option("--pending", "Return pending validators")
   .add_node_option()
-  .add_device_option()
   .action(async options => {
   const ava = ava_js_from_options(options)
   const platformapi = ava.PChain()

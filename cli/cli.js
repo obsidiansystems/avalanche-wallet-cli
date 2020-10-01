@@ -530,20 +530,72 @@ async function sign_with_ledger(ledgerSign, txbuff, path_suffixes) {
   return path_suffix_to_sig;
 }
 
-function parse_amount(str) {
-  try {
-    return new BN(str);
-  } catch (e) {
-    console.error("Couldn't parse amount: ", e.message);
-    console.error("Hint: Amount should be an integer, specified in nanoAVAX.");
+function parseAmountWithError(str) {
+  const amount = parseAmount(str);
+  if (amount === false) {
+    console.error("Couldn't parse the given amount.");
+    console.error("Amounts can be specified with units, and missing units will be treated as nanoAVAX:");
+    console.error("   100     -> 100 nanoAVAX");
+    console.error("   1.5AVAX -> 1,500,000,000 nanoAVAX");
+    console.error("   25nAVAX -> 25 nanoAVAX");
+    console.error("nanoAVAX amounts must be whole integers, and AVAX amounts can't be specified past 9 decimal places.");
     process.exit(1);
+  } else {
+    return amount;
   }
 }
+
+// Amount returned is in nanoAVAX. Returns 'false' if parsing failed for any
+// reason. Defaults to nanoAVAX if no units are given.
+function parseAmount(str) {
+  if (str.length === 0) return false;
+  var pastDecimal = false;
+  var integerPart = "";
+  var fractionalPart = "";
+  var remainingString = "";
+  for (var i = 0; i < str.length; i++) {
+    const c = str.charAt(i);
+    if (c >= "0" && c <= "9") {
+      if (pastDecimal) {
+        fractionalPart += c
+      } else {
+        integerPart += c
+      }
+    } else if ((c == "." || c == ",") && !pastDecimal) {
+      pastDecimal = true;
+    } else {
+      remainingString = str.slice(i);
+      break;
+    }
+  }
+  switch (remainingString) {
+    case "nAVAX":
+    case "nanoAVAX":
+    case "":
+      if (fractionalPart === "") {
+        return new BN(integerPart)
+      } else {
+        return false;
+      }
+      break;
+    case "AVAX":
+      const mkExp = n => (new BN(10)).pow(new BN(n));
+      const i = (new BN(integerPart)).mul(mkExp(9));
+      const exponent = 9 - fractionalPart.length;
+      if (exponent < 0) return false; // Specified more precision than AVAX can hold
+      const f = new BN(fractionalPart).mul(mkExp(exponent));
+      return i.add(f);
+      break;
+    default:
+      return false;
+  }
+}
+
 
 program
   .command("transfer")
   .description("Transfer AVAX between addresses")
-  .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -553,6 +605,7 @@ program
     const chain_objects = make_chain_objects(ava, toAddress.split("-")[0]);
     if (chain_objects.alias !== AvaJS.utils.XChainAlias)
       log_error_and_exit("Transfers are only possible on the " + AvaJS.utils.XChainAlias + " chain. If you are looking to transfer between chains, see `export`.")
+    const amount = parseAmountWithError(options.amount);
 
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
@@ -560,7 +613,6 @@ program
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
 
-      const amount = parse_amount(options.amount);
       const fromAddresses = prepared.addresses;
 
       console.error("Getting new change address...");
@@ -589,7 +641,7 @@ program
 program
   .command("export")
   .description("Export AVAX to another chain")
-  .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -601,6 +653,7 @@ program
     const destination_chain_id = destination_chain_objects.api.getBlockchainID();
     const source_chain_alias = swap_chain_alias(destination_chain_alias);
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
+    const amount = parseAmountWithError(options.amount);
     switch (source_chain_alias) {
       case AvaJS.utils.PChainAlias:
         signing_function = signHash_UnsignedTx;
@@ -615,7 +668,6 @@ program
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, source_chain_objects, root_key);
 
-      const amount = parse_amount(options.amount);
       const fromAddresses = prepared.addresses;
 
       console.error("Getting new change address...");
@@ -653,6 +705,7 @@ program
     const toAddress = options.to;
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
+    const amount = parseAmountWithError(options.amount);
     switch (destination_chain_alias) {
       case AvaJS.utils.XChainAlias:
         source_chain_id = AvaJS.utils.PlatformChainID;
@@ -669,7 +722,6 @@ program
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, destination_chain_objects, root_key);
 
-      const amount = parse_amount(options.amount);
       const fromAddresses = [];
       const changeAddresses = [];
 
@@ -750,7 +802,7 @@ function parseDateToUnixTime(str, relativeTo) {
 program
   .command("validate")
   .description("Add a validator")
-  .requiredOption("--amount <amount>", "Amount to stake, specified in nanoAVAX")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
@@ -762,13 +814,13 @@ program
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
     const startTime = parseDateToUnixTime(options.start, new Date());
     const endTime = parseDateToUnixTime(options.end, new Date());
+    const stakeAmount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
 
-      const stakeAmount = parse_amount(options.amount);
       // TODO parse this properly
       const delegationFee = Number.parseFloat(options.delegationFee);
       // These are the staking addresses
@@ -807,7 +859,7 @@ program
 program
   .command("delegate")
   .description("Delegate stake to a validator")
-  .requiredOption("--amount <amount>", "Amount to stake, specified in nanoAVAX")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, nanoAVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
@@ -819,13 +871,13 @@ program
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
     const startTime = parseDateToUnixTime(options.start, new Date());
     const endTime = parseDateToUnixTime(options.end, new Date());
+    const stakeAmount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
 
-      const stakeAmount = parse_amount(options.amount);
       // These are the staking addresses
       const fromAddresses = prepared.addresses;
 

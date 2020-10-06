@@ -553,7 +553,7 @@ function parseVersion(str) {
       "patch": parseInt(parts[2]),
     }
   } else {
-    console.error("Warning: couldn't get the ledger app version"
+    console.error("Warning: couldn't get the ledger app version")
     return {
       "major": 0,
       "minor": 0,

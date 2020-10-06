@@ -239,6 +239,7 @@ program
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting extended public key for path", path);
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const result = await get_extended_public_key(ledger, path);
       console.log(result.publicExtendedKey);
     });
@@ -438,6 +439,7 @@ program
     const ava = ava_js_from_options(options);
     const chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       let result = await get_first_unused_address(ava, chain_objects, root_key, true);
       console.log(result.non_change);
@@ -445,47 +447,47 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger) {
+async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
     const result = await ledger.signTransaction(prefix, suffixes, buff);
     return result.signatures;
-  });
+  }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 /* An unsafe version of the above function, just signs a hash */
-async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger) {
+async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
-  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, hash, addr_to_path, ledger.signHash);
+  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, hash, addr_to_path, ledger.signHash, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
-async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger) {
+async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
     const result = await ledger.signTransaction(prefix, suffixes, buff);
     return result.signatures;
-  });
+  }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 /* An unsafe version of the above function, just signs a hash */
-async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger) {
+async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
-  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, hash, addr_to_path, ledger.signHash);
+  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, hash, addr_to_path, ledger.signHash, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, ledgerSign) {
+async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, ledgerSign, options, ledger) {
   let path_suffixes = new Set();
   for (let i = 0; i < inputs.length; i++) {
     const sigidxs = inputs[i].getInput().getSigIdxs();
@@ -494,7 +496,7 @@ async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, led
     }
   }
 
-  const path_suffix_to_sig_map = await sign_with_ledger(ledgerSign, txbuff, path_suffixes);
+  const path_suffix_to_sig_map = await sign_with_ledger(ledgerSign, txbuff, path_suffixes, options, ledger);
 
   const sigs = [];
   for (let i = 0; i < inputs.length; i++) {
@@ -514,10 +516,12 @@ async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, led
   return sigs;
 }
 
-async function sign_with_ledger(ledgerSign, txbuff, path_suffixes) {
+async function sign_with_ledger(ledgerSign, txbuff, path_suffixes, options, ledger) {
   const path_suffixes_arr = Array.from(path_suffixes);
   console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
   requestLedgerAccept();
+  if (automationEnabled(options))
+    await flowMultiPrompt(ledger.transport, 4);
   const path_suffix_to_sig = await ledgerSign(
     BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), txbuff
   ).catch(log_error_and_exit);
@@ -608,8 +612,9 @@ program
     const amount = parseAmountWithError(options.amount);
 
     return await withLedger(options, async ledger => {
-      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+      if (automationEnabled(options)) flowAccept(ledger.transport);
 
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
 
@@ -631,7 +636,7 @@ program
       );
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
-      const signedTx = await sign_UnsignedTx(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger);
+      const signedTx = await sign_UnsignedTx(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -686,7 +691,7 @@ program
       );
       console.error("Unsigned Export TX:");
       console.error(unsignedExportTx.toBuffer().toString("hex"));
-      const signedTx = await signing_function(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger);
+      const signedTx = await signing_function(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await source_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -718,15 +723,12 @@ program
     }
     return await withLedger(options, async ledger => {
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, destination_chain_objects, root_key);
 
       const fromAddresses = [];
       const changeAddresses = [];
-
       console.error("Building TX...");
-
       const unsignedImportTx = await destination_chain_objects.api.buildImportTx(
         prepared.utxoset,
         [toAddress],
@@ -737,7 +739,7 @@ program
       );
       console.error("Unsigned Import TX:");
       console.error(unsignedImportTx.toBuffer().toString("hex"));
-      const signedTx = await signing_function(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger);
+      const signedTx = await signing_function(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await destination_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -856,7 +858,7 @@ program
       );
       console.error("Unsigned Add Validator TX:");
       console.error(unsignedAddValidatorTx.toBuffer().toString("hex"));
-      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger);
+      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -929,7 +931,7 @@ program
       );
       console.error("Unsigned Add Delegator TX:");
       console.error(unsignedAddDelegatorTx.toBuffer().toString("hex"));
-      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger);
+      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -1036,6 +1038,168 @@ function flowAccept(speculos, n) {
         }
       }
     });
+  });
+}
+
+async function readMultiScreenPrompt(speculos, source) {
+  let header;
+  let body;
+  let screen = await source.next();
+  let m = screen.header && screen.header.match(/^(.*) \(([0-9])\/([0-9])\)$/);
+  if (m) {
+    header = m[1];
+    body = screen.body;
+    while(m[2] !== m[3]) {
+      speculos.button("Rr");
+      screen = await source.next();
+      m = screen.header && screen.header.match(/^(.*) \(([0-9])\/([0-9])\)$/);
+      body = body + screen.body;
+    }
+    return { header: header, body: body };
+  } else {
+    return screen;
+  }
+}
+
+function acceptPrompts(expectedPrompts, selectPrompt) {
+  return async (speculos, screens) => {
+    if(!screens) {
+      // We're running against hardware, so we can't prompt but
+      // should tell the person running the test what to do.
+      if (expectedPrompts) {
+        console.log("Expected prompts: ");
+        for (p in expectedPrompts) {
+          console.log("Prompt %d", p);
+          console.log(expectedPrompts[p][3]);
+          console.log(expectedPrompts[p][17]);
+        }
+      }
+      console.log("Please %s this prompt", selectPrompt);
+      return { expectedPrompts, promptsMatch: true }
+    } else {
+      let promptList = [];
+      let done = false;
+      while(!done && (screen = await readMultiScreenPrompt(speculos, screens))) {
+        if(screen.body != selectPrompt && screen.body != "Reject") {
+          promptList.push(screen);
+        }
+        if(screen.body !== selectPrompt) {
+          speculos.button("Rr");
+        } else {
+          speculos.button("RLrl");
+          done = true;
+        }
+      }
+
+      if (expectedPrompts) {
+        expect(promptList).to.deep.equal(expectedPrompts);
+        return { promptList, promptsMatch: true };
+      } else {
+        return { promptList };
+      }
+    }
+  }
+}
+
+async function automationStart(speculos, interactionFunc) {
+  // If this doens't exist, we're running against a hardware ledger; just call
+  // interactionFunc with no events iterator.
+  if(!speculos.automationEvents) {
+    return new Promise(r=>r({ promptsPromise: interactionFunc(speculos) }));
+  }
+
+  // This is so that you can just "await flowAccept(this.speculos);" in a test
+  // without actually waiting for the prompts.  If we don't do this, you can
+  // end up with two flowAccept calls active at once, causing issues.
+  let subNum = speculos.handlerNum++;
+  let promptLockResolve;
+  let promptsLock=new Promise(r=>{promptLockResolve=r});
+  if(speculos.promptsEndPromise) {
+    await speculos.promptsEndPromise;
+  }
+  speculos.promptsEndPromise = promptsLock; // Set ourselves as the interaction.
+
+  // Make an async iterator we can push stuff into.
+  let sendEvent;
+  let sendPromise=new Promise(r=>{sendEvent = r;});
+  let asyncEventIter = {
+    next: async ()=>{
+      promptVal=await sendPromise;
+      sendPromise=new Promise(r=>{sendEvent = r;});
+      return promptVal;
+    },
+    peek: async ()=>{
+      return await sendPromise;
+    }
+  };
+
+  // Sync up with the ledger; wait until we're on the home screen, and do some
+  // clicking back and forth to make sure we see the event.
+  // Then pass screens to interactionFunc.
+  let readyPromise = syncWithLedger(speculos, asyncEventIter, interactionFunc);
+
+  // Resolve our lock when we're done
+  readyPromise.then(r=>r.promptsPromise.then(()=>{promptLockResolve(true)}));
+
+  let header;
+  let body;
+
+  let subscript = speculos.automationEvents.subscribe({
+    next: evt => {
+      // Wrap up two-line prompts into one:
+      if(evt.y == 3) {
+        header = evt.text;
+        return; // The top line comes out first, so now wait for the next draw.
+      } else {
+        body = evt.text;
+      }
+      screen = { ...(header && {header}), body };
+      // console.log("SCREEN (" + subNum + "): " + JSON.stringify(screen));
+      sendEvent(screen);
+      body=undefined;
+      header=undefined;
+    }});
+
+  asyncEventIter.unsubscribe = () => { subscript.unsubscribe(); };
+
+  // Send a rightward-click to make sure we get _an_ event and our state
+  // machine starts.
+  speculos.button("Rr");
+
+  return readyPromise.then(r=>{r.cancel = ()=>{subscript.unsubscribe(); promptLockResolve(true);}; return r;});
+}
+
+async function syncWithLedger(speculos, source, interactionFunc) {
+  let screen = await source.next();
+  // Scroll to the end; we do this because we might have seen "Avalanche" when
+  // we subscribed, but needed to send a button click to make sure we reached
+  // this point.
+  while(screen.body != "Quit") {
+    speculos.button("Rr");
+    screen = await source.next();
+  }
+  // Scroll back to "Avalanche", and we're ready and pretty sure we're on the
+  // home screen.
+  while(screen.header != "Avalanche") {
+    speculos.button("Ll");
+    screen = await source.next();
+  }
+  // Sink some extra homescreens to make us a bit more durable to failing tests.
+  while(await source.peek().header == "Avalanche" || await source.peek().body == "Quit") {
+    await source.next();
+  }
+  // And continue on to interactionFunc
+  let interactFP = interactionFunc(speculos, source);
+  return { promptsPromise: interactFP.finally(() => { source.unsubscribe(); }) };
+}
+
+async function flowMultiPrompt(speculos, numPrompts, nextPrompt="Next", finalPrompt="Accept") {
+  return await automationStart(speculos, async (speculos, screens) => {
+    for (var i = 0; i < numPrompts; i++) {
+      await acceptPrompts(undefined, nextPrompt)(speculos, screens);
+    }
+    await acceptPrompts(undefined, finalPrompt)(speculos, screens);
+    return true;
   });
 }
 

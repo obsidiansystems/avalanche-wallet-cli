@@ -2,7 +2,7 @@
   "name": "avalanche-wallet-cli",
   "private": true,
   "scripts": {
-    "test": "yarn workspace avalanche-wallet-cli-tests run test",
+    "test": "yarn workspace avalanche-wallet-cli-tests run test"
   },
   "workspaces": [
     "tests",

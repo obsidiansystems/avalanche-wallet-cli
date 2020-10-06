@@ -656,11 +656,9 @@ program
     switch (destination_chain_alias) {
       case AvaJS.utils.XChainAlias:
         source_chain_id = AvaJS.utils.PlatformChainID;
-        signing_function = sign_UnsignedTxImport;
         break;
       case AvaJS.utils.PChainAlias:
         source_chain_id = ava.XChain().getBlockchainID();
-        signing_function = signHash_UnsignedTxImport;
         break;
     }
     return await withLedger(options, async ledger => {
@@ -685,7 +683,7 @@ program
       );
       console.error("Unsigned Import TX:");
       console.error(unsignedImportTx.toBuffer().toString("hex"));
-      const signedTx = await signing_function(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger);
+      const signedTx = await sign_UnsignedTxImport(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger);
       console.error("Issuing TX...");
       const txid = await destination_chain_objects.api.issueTx(signedTx);
       console.log(txid);

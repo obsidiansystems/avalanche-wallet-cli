@@ -1,0 +1,9 @@
+{
+"jsonrpc": "2.0",
+"method": "avm.getAllBalances",
+"params": {
+"address":"X-local1r0t6cce8yece0ksdfestg87c8xuhs8fc0mvsfr"
+},
+"id": 1
+}
+

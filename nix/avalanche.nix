@@ -8,7 +8,7 @@ in pkgs.buildGoModule {
   # or else nix will automatically use the derivation for the matching hash and
   # go mod will complain about you missing packages (when instead, it should be complaining
   # about the wrong hash
-  modSha256 = "1snc5isify8vxqf9wch73yflxgj53rn934zyc6p85kyqfcqpqhj9";
+  modSha256 = "08nfy9zpkkh3j9arrrndlkhnwaqvfgv02kdgnvp3qzaw7898qbsq";
   doCheck = false;
   buildPhase = ''
     mkdir -p $out

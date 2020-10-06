@@ -11,5 +11,5 @@ let
     };
   });
 in pkgs.mkShell {
-  buildInputs = [ pkgs.pkgconfig pkgs.python pkgs.libusb1 pkgs.libudev.dev nodejs pkgs.yarn ];
+  buildInputs = [ pkgs.bats pkgs.pkgconfig pkgs.python pkgs.libusb1 pkgs.libudev.dev nodejs pkgs.yarn ];
 }

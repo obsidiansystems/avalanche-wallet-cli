@@ -1,0 +1,10 @@
+
+{
+    "jsonrpc": "2.0",
+    "method": "avm.listAddresses",
+    "params": {
+"username":"test1",
+"password":"good-cub-book"
+    },
+    "id": 1
+} 

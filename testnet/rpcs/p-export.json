@@ -1,0 +1,12 @@
+{
+"jsonrpc": "2.0",
+"method": "platform.exportAVAX",
+"params": {
+"to":"X-local1g8yucm7j0cnwwru4rp5lkzw6dpdxjmc266txnd",
+"amount":6000000,
+"username":"test1",
+"password":"good-cub-book"
+},
+"id": 1
+}
+

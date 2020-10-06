@@ -595,6 +595,28 @@ function parseAmount(str) {
   }
 }
 
+function parseVersion(str) {
+  parts = str.split(".");
+  if (parts.length == 3) {
+    return {
+      "major": parseInt(parts[0]),
+      "minor": parseInt(parts[1]),
+      "patch": parseInt(parts[2]),
+    }
+  } else {
+    console.error("Warning: couldn't get the ledger app version")
+    return {
+      "major": 0,
+      "minor": 0,
+      "patch": 0,
+    }
+  }
+}
+
+async function getParsedVersion(ledger, version) {
+  const appDetails = await ledger.getAppConfiguration();
+  return parseVersion(appDetails.version);
+}
 
 program
   .command("transfer")
@@ -613,6 +635,8 @@ program
 
     return await withLedger(options, async ledger => {
       if (automationEnabled(options)) flowAccept(ledger.transport);
+      const version = await getParsedVersion(ledger);
+      const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
 
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       console.error("Discovering addresses...");
@@ -636,7 +660,7 @@ program
       );
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
-      const signedTx = await sign_UnsignedTx(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -659,15 +683,16 @@ program
     const source_chain_alias = swap_chain_alias(destination_chain_alias);
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
     const amount = parseAmountWithError(options.amount);
-    switch (source_chain_alias) {
-      case AvaJS.utils.PChainAlias:
-        signing_function = signHash_UnsignedTx;
-        break;
-      case AvaJS.utils.XChainAlias:
-        signing_function = sign_UnsignedTx;
-        break;
-    }
     return await withLedger(options, async ledger => {
+      switch (source_chain_alias) {
+        case AvaJS.utils.PChainAlias:
+          signFunction = signHash_UnsignedTx;
+          break;
+        case AvaJS.utils.XChainAlias:
+          const version = await getParsedVersion(ledger);
+          signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
+          break;
+      }
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
@@ -691,7 +716,7 @@ program
       );
       console.error("Unsigned Export TX:");
       console.error(unsignedExportTx.toBuffer().toString("hex"));
-      const signedTx = await signing_function(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await source_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -711,15 +736,18 @@ program
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
     const amount = parseAmountWithError(options.amount);
-    switch (destination_chain_alias) {
-      case AvaJS.utils.XChainAlias:
-        source_chain_id = AvaJS.utils.PlatformChainID;
-        break;
-      case AvaJS.utils.PChainAlias:
-        source_chain_id = ava.XChain().getBlockchainID();
-        break;
-    }
     return await withLedger(options, async ledger => {
+      switch (destination_chain_alias) {
+        case AvaJS.utils.XChainAlias:
+          source_chain_id = AvaJS.utils.PlatformChainID;
+          const version = await getParsedVersion(ledger);
+          signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTxImport : sign_UnsignedTxImport
+          break;
+        case AvaJS.utils.PChainAlias:
+          source_chain_id = ava.XChain().getBlockchainID();
+          signFunction = signHash_UnsignedTxImport;
+          break;
+      }
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, destination_chain_objects, root_key);
@@ -737,7 +765,7 @@ program
       );
       console.error("Unsigned Import TX:");
       console.error(unsignedImportTx.toBuffer().toString("hex"));
-      const signedTx = await sign_UnsignedTxImport(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await destination_chain_objects.api.issueTx(signedTx);
       console.log(txid);

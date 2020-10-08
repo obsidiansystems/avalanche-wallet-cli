@@ -451,6 +451,8 @@ async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, led
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
+    if (automationEnabled(options))
+      await flowMultiPrompt(ledger.transport);
     const result = await ledger.signTransaction(prefix, suffixes, buff);
     return result.signatures;
   }, options, ledger);
@@ -462,7 +464,11 @@ async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path,
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
-  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, hash, addr_to_path, ledger.signHash, options, ledger);
+  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, hash, addr_to_path, async (prefix, suffixes, buff) => {
+    if (automationEnabled(options)) flowAccept(ledger.transport);
+    const result = await ledger.signHash(prefix, suffixes, buff);
+    return result
+  }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
@@ -470,6 +476,8 @@ async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_pat
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
+    if (automationEnabled(options))
+      await flowMultiPrompt(ledger.transport);
     const result = await ledger.signTransaction(prefix, suffixes, buff);
     return result.signatures;
   }, options, ledger);
@@ -481,7 +489,11 @@ async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
-  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, hash, addr_to_path, ledger.signHash, options, ledger);
+  const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, hash, addr_to_path, async (prefix, suffixes, buff) => {
+    if (automationEnabled(options)) flowAccept(ledger.transport);
+    const result = await ledger.signHash(prefix, suffixes, buff);
+    return result
+  }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
@@ -520,8 +532,6 @@ async function sign_with_ledger(ledgerSign, txbuff, path_suffixes, options, ledg
   const path_suffixes_arr = Array.from(path_suffixes);
   console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
   requestLedgerAccept();
-  if (automationEnabled(options))
-    await flowMultiPrompt(ledger.transport, 4);
   const path_suffix_to_sig = await ledgerSign(
     BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), txbuff
   ).catch(log_error_and_exit);
@@ -641,6 +651,7 @@ program
           signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
           break;
       }
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
@@ -678,7 +689,6 @@ program
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
-  .add_chain_option()
   .action(async options => {
     const ava = ava_js_from_options(options);
     const toAddress = options.to;
@@ -696,6 +706,7 @@ program
           signFunction = signHash_UnsignedTxImport;
           break;
       }
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, destination_chain_objects, root_key);
@@ -776,7 +787,7 @@ async function readMultiScreenPrompt(speculos, source) {
   }
 }
 
-function acceptPrompts(expectedPrompts, selectPrompt) {
+function acceptPrompts(expectedPrompts, selectPrompt, finalPrompt = selectPrompt) {
   return async (speculos, screens) => {
     if(!screens) {
       // We're running against hardware, so we can't prompt but
@@ -790,27 +801,29 @@ function acceptPrompts(expectedPrompts, selectPrompt) {
         }
       }
       console.log("Please %s this prompt", selectPrompt);
-      return { expectedPrompts, promptsMatch: true }
+      return { expectedPrompts, promptsMatch: true, finalDone: false }
     } else {
       let promptList = [];
+      let finalDone = false;
       let done = false;
       while(!done && (screen = await readMultiScreenPrompt(speculos, screens))) {
-        if(screen.body != selectPrompt && screen.body != "Reject") {
+        if(screen.body !== selectPrompt && screen.body !== finalPrompt && screen.body != "Reject") {
           promptList.push(screen);
         }
-        if(screen.body !== selectPrompt) {
+        if(screen.body !== selectPrompt && screen.body !== finalPrompt) {
           speculos.button("Rr");
         } else {
           speculos.button("RLrl");
           done = true;
+          finalDone = screen.body === finalPrompt;
         }
       }
 
       if (expectedPrompts) {
         expect(promptList).to.deep.equal(expectedPrompts);
-        return { promptList, promptsMatch: true };
+        return { promptList, promptsMatch: true, finalDone: finalDone };
       } else {
-        return { promptList };
+        return { promptList, finalDone: finalDone };
       }
     }
   }
@@ -908,12 +921,12 @@ async function syncWithLedger(speculos, source, interactionFunc) {
   return { promptsPromise: interactFP.finally(() => { source.unsubscribe(); }) };
 }
 
-async function flowMultiPrompt(speculos, numPrompts, nextPrompt="Next", finalPrompt="Accept") {
+async function flowMultiPrompt(speculos, nextPrompt="Next", finalPrompt="Accept") {
   return await automationStart(speculos, async (speculos, screens) => {
-    for (var i = 0; i < numPrompts; i++) {
-      await acceptPrompts(undefined, nextPrompt)(speculos, screens);
+    while (true) {
+      const result = await acceptPrompts(undefined, nextPrompt, finalPrompt)(speculos, screens);
+      if (result.finalDone) break;
     }
-    await acceptPrompts(undefined, finalPrompt)(speculos, screens);
     return true;
   });
 }

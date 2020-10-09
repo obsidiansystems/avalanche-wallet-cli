@@ -745,7 +745,6 @@ program
     const toAddress = options.to;
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
-    const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       switch (destination_chain_alias) {
         case AvaJS.utils.XChainAlias:
@@ -868,6 +867,7 @@ program
       process.exit(1);
     }
     return await withLedger(options, async ledger => {
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
@@ -947,6 +947,7 @@ program
       }
     }
     return await withLedger(options, async ledger => {
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");

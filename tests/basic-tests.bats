@@ -49,4 +49,13 @@ transfer(){
   run getBalance
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "371000000" ]]
+
+  # Transfer the rest away so we are clean for other tests
+  run transfer 370000000nAVAX $FAKE_USER
+  [ "$status" -eq 0 ]
+  sleep 8
+
+  run getBalance
+  [ "$status" -eq 0 ]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0" ]]
 }

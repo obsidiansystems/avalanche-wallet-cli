@@ -40,7 +40,7 @@ transfer(){
 
 
   # echo "Starting Transfer test"
-  run transfer 3000000 $FAKE_USER
+  run transfer 3000000nAVAX $FAKE_USER
   [ "$status" -eq 0 ]
   sleep 8
 

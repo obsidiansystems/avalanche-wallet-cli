@@ -534,13 +534,64 @@ async function sign_with_ledger(ledgerSign, txbuff, path_suffixes, options, ledg
   return path_suffix_to_sig;
 }
 
-function parse_amount(str) {
-  try {
-    return new BN(str);
-  } catch (e) {
-    console.error("Couldn't parse amount: ", e.message);
-    console.error("Hint: Amount should be an integer, specified in nanoAVAX.");
+function parseAmountWithError(str) {
+  const amount = parseAmount(str);
+  if (amount === false) {
+    console.error("Couldn't parse the given amount.");
+    console.error("Amounts can be specified with units, and missing units will be treated as AVAX:");
+    console.error("   100     -> 100 AVAX");
+    console.error("   1.5AVAX -> 1,500,000,000 nanoAVAX");
+    console.error("   25nAVAX -> 25 nanoAVAX");
+    console.error("nanoAVAX amounts must be whole integers, and AVAX amounts can't be specified past 9 decimal places.");
     process.exit(1);
+  } else {
+    return amount;
+  }
+}
+
+// Amount returned is in nanoAVAX. Returns 'false' if parsing failed for any
+// reason. Defaults to AVAX if no units are given.
+function parseAmount(str) {
+  if (str.length === 0) return false;
+  var pastDecimal = false;
+  var integerPart = "";
+  var fractionalPart = "";
+  var remainingString = "";
+  for (var i = 0; i < str.length; i++) {
+    const c = str.charAt(i);
+    if (c >= "0" && c <= "9") {
+      if (pastDecimal) {
+        fractionalPart += c
+      } else {
+        integerPart += c
+      }
+    } else if ((c == "." || c == ",") && !pastDecimal) {
+      pastDecimal = true;
+    } else {
+      remainingString = str.slice(i);
+      break;
+    }
+  }
+  switch (remainingString) {
+    case "nAVAX":
+    case "nanoAVAX":
+      if (fractionalPart === "") {
+        return new BN(integerPart)
+      } else {
+        return false;
+      }
+      break;
+    case "AVAX":
+    case "":
+      const mkExp = n => (new BN(10)).pow(new BN(n));
+      const i = (new BN(integerPart)).mul(mkExp(9));
+      const exponent = 9 - fractionalPart.length;
+      if (exponent < 0) return false; // Specified more precision than AVAX can hold
+      const f = new BN(fractionalPart).mul(mkExp(exponent));
+      return i.add(f);
+      break;
+    default:
+      return false;
   }
 }
 
@@ -570,7 +621,7 @@ async function getParsedVersion(ledger, version) {
 program
   .command("transfer")
   .description("Transfer AVAX between addresses")
-  .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -580,6 +631,7 @@ program
     const chain_objects = make_chain_objects(ava, toAddress.split("-")[0]);
     if (chain_objects.alias !== AvaJS.utils.XChainAlias)
       log_error_and_exit("Transfers are only possible on the " + AvaJS.utils.XChainAlias + " chain. If you are looking to transfer between chains, see `export`.")
+    const amount = parseAmountWithError(options.amount);
 
     return await withLedger(options, async ledger => {
       if (automationEnabled(options)) flowAccept(ledger.transport);
@@ -590,7 +642,6 @@ program
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
 
-      const amount = parse_amount(options.amount);
       const fromAddresses = prepared.addresses;
 
       console.error("Getting new change address...");
@@ -619,7 +670,7 @@ program
 program
   .command("export")
   .description("Export AVAX to another chain")
-  .requiredOption("--amount <amount>", "Amount to transfer, specified in nanoAVAX")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -631,6 +682,7 @@ program
     const destination_chain_id = destination_chain_objects.api.getBlockchainID();
     const source_chain_alias = swap_chain_alias(destination_chain_alias);
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
+    const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       switch (source_chain_alias) {
         case AvaJS.utils.PChainAlias:
@@ -646,7 +698,6 @@ program
       console.error("Discovering addresses...");
       const prepared = await prepare_for_transfer(ava, source_chain_objects, root_key);
 
-      const amount = parse_amount(options.amount);
       const fromAddresses = prepared.addresses;
 
       console.error("Getting new change address...");
@@ -684,6 +735,7 @@ program
     const toAddress = options.to;
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
+    const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       switch (destination_chain_alias) {
         case AvaJS.utils.XChainAlias:
@@ -718,6 +770,273 @@ program
       const txid = await destination_chain_objects.api.issueTx(signedTx);
       console.log(txid);
     });
+});
+
+// Parse a relative date, i.e. something like: 1d15m, 1d1h, 10m
+// Returns 'false' if parsing failed, otherwise returns an object with 'days',
+// 'hours', and 'mins'. The keys will be missing if the user did not specify
+// them.
+function parseRelativeDate(str) {
+  var digits = "";
+  var obj = new Object();
+  if (str.length === 0) return false;
+  for (var i = 0; i < str.length; i++) {
+    const c = str.charAt(i);
+    if (c >= "0" && c <= "9") {
+      digits += c;
+    } else if (c === "d") {
+      if (obj.days !== undefined) return false;
+      if (digits === "") return false
+      obj.days = parseInt(digits);
+      digits = "";
+    } else if (c === "h") {
+      if (obj.hours !== undefined) return false;
+      if (digits === "") return false
+      obj.hours = parseInt(digits);
+      digits = "";
+    } else if (c === "m") {
+      if (obj.mins !== undefined) return false;
+      if (digits === "") return false
+      obj.mins = parseInt(digits);
+      digits = "";
+    } else {
+      return false;
+    }
+  }
+  // If we have leftover digits, parsing failed
+  if (digits !== "") return false;
+  return obj;
+}
+
+// Parse a date like string to unix time. If the given date is relative, the
+// returned time is relative to the given date "relativeTo".
+function parseDateToUnixTime(str, relativeTo) {
+  const relative = parseRelativeDate(str)
+  if (relative === false) {
+    const millis = Date.parse(str);
+    if (isNaN(millis)) {
+      console.error("Invalid date");
+      process.exit(1);
+    } else {
+      return new BN(millis / 1000);
+    }
+  } else {
+    mins = relative.mins === undefined ? 0 : relative.mins;
+    hours = relative.hours === undefined ? 0 : relative.hours;
+    days = relative.days === undefined ? 0 : relative.days;
+    return new BN((Math.floor(relativeTo.getTime() / 1000)) + 60 * (mins + 60 * (hours + 24 * days)));
+  }
+}
+
+program
+  .command("validate")
+  .description("Add a validator")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
+  .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
+  .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
+  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
+  .requiredOption("--delegation-fee <fee>", "Delegation fee, percent")
+  .add_node_option()
+  .add_device_option()
+  .action(async options => {
+    const ava = ava_js_from_options(options)
+    const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
+    const startTime = parseDateToUnixTime(options.start, new Date());
+    const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
+    if (startTime > twoWeeksFromNow) {
+      log_error_and_exit("Start time must be within two weeks from now");
+    }
+    const endTime = parseDateToUnixTime(options.end, new Date());
+    const stakeAmount = parseAmountWithError(options.amount);
+    const delegationFee = Number.parseFloat(options.delegationFee);
+    if (delegationFee < 2) {
+      console.error("The minimum delegation fee is 2%.");
+      process.exit(1);
+    } else if (delegationFee > 100) {
+      console.error("The delegation fee cannot be higher than 100%.");
+      process.exit(1);
+    }
+    return await withLedger(options, async ledger => {
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+
+      console.error("Discovering addresses...");
+      const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
+
+      // These are the staking addresses
+      const fromAddresses = prepared.addresses;
+
+      console.error("Getting new change address...");
+      // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+      const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+      // Rewards go to the staking addresses unless otherwise specified
+      const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
+      const nodeID = await ava.Info().getNodeID();
+
+      console.error("Building TX...");
+
+      const unsignedAddValidatorTx = await chain_objects.api.buildAddValidatorTx(
+        prepared.utxoset,
+        fromAddresses, // Return the staked tokens to the staking addresses
+        fromAddresses,
+        [changeAddress],
+        nodeID,
+        startTime,
+        endTime,
+        stakeAmount,
+        rewardAddresses,
+        delegationFee,
+      );
+      console.error("Unsigned Add Validator TX:");
+      console.error(unsignedAddValidatorTx.toBuffer().toString("hex"));
+      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
+      console.error("Issuing TX...");
+      const txid = await chain_objects.api.issueTx(signedTx);
+      console.log(txid);
+  });
+});
+
+program
+  .command("delegate")
+  .description("Delegate stake to a validator")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
+  .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
+  .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
+  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
+  .requiredOption("--node-id <node-id>", "ID of the node to delegate to")
+  .add_node_option()
+  .add_device_option()
+  .action(async options => {
+    const ava = ava_js_from_options(options)
+    const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
+    const startTime = parseDateToUnixTime(options.start, new Date());
+    const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
+    if (startTime > twoWeeksFromNow) {
+      log_error_and_exit("Start time must be within two weeks from now");
+    }
+    const endTime = parseDateToUnixTime(options.end, new Date());
+    const stakeAmount = parseAmountWithError(options.amount);
+    const nodeId = options.nodeId;
+    // Preemptively reject delegations which lie outside the validator time
+    // slot, because the node won't give us an error and the TX will never be
+    // accepted.
+    validators = await chain_objects.api.getCurrentValidators();
+    validator = validators.validators.find(v => v.nodeID === nodeId)
+    if (validator !== undefined) {
+      validatorStartTime = new BN(validator.startTime);
+      validatorEndTime = new BN(validator.endTime);
+      if (startTime.lt(validatorStartTime)) {
+        validatorDate = new Date(validatorStartTime.toNumber() * 1000);
+        delegatorDate = new Date(startTime.toNumber() * 1000);
+        log_error_and_exit("Chosen delegation start time [" + delegatorDate.toString() + "] starts before the validator start time [" + validatorDate.toString() + "].");
+      }
+      if (endTime.gt(validatorEndTime)) {
+        validatorDate = new Date(validatorEndTime.toNumber() * 1000);
+        delegatorDate = new Date(endTime.toNumber() * 1000);
+        log_error_and_exit("Chosen delegation end time [" + delegatorDate.toString() + "] ends after the validator end time [" + validatorDate.toString() + "].");
+      }
+    }
+    return await withLedger(options, async ledger => {
+      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+
+      console.error("Discovering addresses...");
+      const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
+
+      // These are the staking addresses
+      const fromAddresses = prepared.addresses;
+
+      console.error("Getting new change address...");
+      // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+      const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+      // Rewards go to the staking addresses unless otherwise specified
+      const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
+
+      console.error("Building TX...");
+
+      const unsignedAddDelegatorTx = await chain_objects.api.buildAddDelegatorTx(
+        prepared.utxoset,
+        fromAddresses, // Return the staked tokens to the staking addresses
+        fromAddresses,
+        [changeAddress],
+        nodeId,
+        startTime,
+        endTime,
+        stakeAmount,
+        rewardAddresses,
+      );
+      console.error("Unsigned Add Delegator TX:");
+      console.error(unsignedAddDelegatorTx.toBuffer().toString("hex"));
+      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
+      console.error("Issuing TX...");
+      const txid = await chain_objects.api.issueTx(signedTx);
+      console.log(txid);
+  });
+});
+
+program
+  .command("list-validators")
+  .description("List validators")
+  .option("--current", "Return current validators")
+  .option("--pending", "Return pending validators")
+  .add_node_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const platformapi = ava.PChain()
+  const show_current = options.current || !options.pending
+  const show_pending = options.pending || !options.current
+  var validators = [];
+  if (show_current) {
+    validators = (await platformapi.getCurrentValidators()).validators;
+  }
+  if (show_pending) {
+    validators = validators.concat((await platformapi.getPendingValidators()).validators);
+  }
+  validators.sort((a,b) => b.stakeAmount - a.stakeAmount);
+  validators.forEach(validator => {
+    console.log(validator.nodeID);
+    console.log("  Stake Amount:", (validator.stakeAmount / 1000000000).toString() + " AVAX");
+    console.log("  Delegation Fee:", validator.delegationFee + "%");
+    console.log("  Uptime:", validator.uptime);
+    console.log("  Potential Reward:", validator.potentialReward);
+    console.log("  Start Time:", new Date(validator.startTime * 1000));
+    console.log("  End Time:", new Date(validator.endTime * 1000));
+    console.log("  Delegators:", validator.delegators === null ? 0 : validator.delegators.length);
+  });
+});
+
+program
+  .command("get-min-stake")
+  .description("Get the minimum amount of AVAX required for validation and delegation")
+  .add_node_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const platformapi = ava.PChain()
+  const min_stake = await platformapi.getMinStake();
+  console.log("Min validator stake:", min_stake.minValidatorStake.toString(), "nanoAVAX");
+  console.log("Min delegator stake:", min_stake.minDelegatorStake.toString(), "nanoAVAX");
+});
+
+program
+  .command("get-default-fee")
+  .description("Get the default TX fee for this chain")
+  .add_node_option()
+  .add_chain_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const chain_objects = make_chain_objects(ava, options.chain)
+  const fee = chain_objects.api.getDefaultTxFee();
+  console.log(fee.toString(), "nanoAVAX");
+});
+
+program
+  .command("get-fee")
+  .description("Get the TX fee for this chain")
+  .add_node_option()
+  .add_chain_option()
+  .action(async options => {
+  const ava = ava_js_from_options(options)
+  const chain_objects = make_chain_objects(ava, options.chain)
+  const fee = chain_objects.api.getTxFee();
+  console.log(fee.toString(), "nanoAVAX");
 });
 
 // For automated testing

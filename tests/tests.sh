@@ -71,7 +71,7 @@ APDU_PORT=9999
 NODE_PREFIX="$GECKO --plugin-dir=$PLUGINS/"
 NODE_SHARED="--assertions-enabled=true --tx-fee=1000000 --public-ip=127.0.0.1 --network-id=local --xput-server-enabled=false --signature-verification-enabled=true --api-admin-enabled=true --api-ipcs-enabled=false --api-keystore-enabled=true --api-metrics-enabled=true --http-tls-enabled=false --db-enabled=false --log-level=debug --snow-avalanche-batch-size=31 --snow-avalanche-num-parents=5 --snow-sample-size=2 --snow-quorum-size=2 --snow-virtuous-commit-threshold=5 --snow-rogue-commit-threshold=10 --p2p-tls-enabled=true --staking-enabled=false"
 
-NODE_HTTP_PORT=9652
+export NODE_HTTP_PORT=9652
 export SPECULOS_ARGS="--speculos $APDU_PORT --speculos-button-port $BUTTON_PORT --speculos-automation-port $AUTOMATION_PORT"
 export CLI_ARGS="--network local $SPECULOS_ARGS"
 export NODE_ARGS="--node http://localhost:$NODE_HTTP_PORT"

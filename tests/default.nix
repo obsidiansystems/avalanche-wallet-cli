@@ -9,7 +9,7 @@ let
 
   testScriptText = ''
     #!${pkgs.bash}/bin/bash
-    export PATH=${pkgs.curl}/bin:$PATH
+    export PATH=${pkgs.jq}/bin:${pkgs.curl}/bin:$PATH
     export GECKO='${gecko}/bin/avalanche'
     export PLUGINS='${gecko}/plugins'
     export CERTS='${test-certs-dir}'
@@ -23,7 +23,6 @@ let
 in rec {
   test-script = pkgs.writeScriptBin "test-script.sh" testScriptText;
   test-run = pkgs.runCommand "test-run" {} ''
-    ${test-script}/bin/test-script.sh
-    mkdir $out
+    ${test-script}/bin/test-script.sh | tee $out
   '';
 }

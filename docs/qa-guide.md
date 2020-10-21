@@ -255,10 +255,12 @@ cli/cli.js import --to $P_CHAIN_ADDRESS
 ```
 
 This will prompt to `Provide Extended Public Key`. Accept this, and the ledger
-will prompt you to `Sign Hash`, with a large warning about the dangerous
-operation. Check that the hash matches the one printed by the CLI (after
-`Signing transaction`). If they match, accept the transaction. You should now
-check that the balance of `$P_CHAIN_ADDRESS` has increased:
+will prompt you to `Sign Import`. Scroll to `Next` and continue, the screen
+should change to `From X chain` along with the amount you're importing (minus
+the transaction fee, which is shown on the next step). Verify that the
+transaction fee and amount shown by the ledger add up to equal the amount you
+exported in the previous step. Accept the remaining prompts, and check the
+balance of your P-Chain address `$P_CHAIN_ADDRESS` has increased:
 
 ```bash
 cli/cli.js get-balance --chain P

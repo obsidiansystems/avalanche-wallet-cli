@@ -54,7 +54,7 @@ atomicSwapImport(){
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0" ]]
 
-  run atomicSwapExport 4000000 $P_CHAIN_ADDRESS
+  run atomicSwapExport 4000000nAVAX $P_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
   sleep 8
 
@@ -78,7 +78,7 @@ atomicSwapImport(){
   [ "$status" -eq 0 ]
   export X_CHAIN_ADDRESS=$(echo "$output" | tail -n1 | awk '{print $NF}')
 
-  run atomicSwapExport 2000000 $X_CHAIN_ADDRESS
+  run atomicSwapExport 2000000nAVAX $X_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
   sleep 8
 
@@ -97,7 +97,7 @@ atomicSwapImport(){
 
   # Set the balance to zero for other tests
 
-  run atomicSwapExport 5000000 $P_CHAIN_ADDRESS
+  run atomicSwapExport 5000000nAVAX $P_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
   sleep 8
 

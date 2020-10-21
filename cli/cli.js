@@ -745,7 +745,6 @@ program
     const toAddress = options.to;
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
-    const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       switch (destination_chain_alias) {
         case AvaJS.utils.XChainAlias:

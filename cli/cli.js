@@ -867,6 +867,7 @@ program
       process.exit(1);
     }
     return await withLedger(options, async ledger => {
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");
@@ -946,6 +947,7 @@ program
       }
     }
     return await withLedger(options, async ledger => {
+      if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
       console.error("Discovering addresses...");

@@ -21,7 +21,7 @@ getBalancePChain(){
 atomicSwapExport(){
   amount=$1
   toAccount=$2
-  $CLI export --amount $amount --to $toAccount $CLI_ARGS $NODE_ARGS > test_file
+  $CLI export --amount $amount --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
 atomicSwapImport(){

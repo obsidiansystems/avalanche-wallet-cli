@@ -241,13 +241,13 @@ program
 });
 
 program
-  .command("get-extended-public-key <path>")
+  .command("get-extended-public-key [path]")
   .description("get the extended public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
     return await withLedger(options, async ledger => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
-      path = AVA_BIP32_PREFIX + "/" + path;
+      path = AVA_BIP32_PREFIX + (path === undefined ? "" : "/" + path);
       console.error("Getting extended public key for path", path);
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const result = await get_extended_public_key(ledger, path);

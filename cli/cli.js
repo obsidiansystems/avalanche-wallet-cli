@@ -44,13 +44,13 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "fuji");
+  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "avax");
 }
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
   return this
-    .requiredOption("-n, --node <uri>", "node to use (use 'https://testapi.avax.network' for test network)", "https://testapi.avax.network")
+    .requiredOption("-n, --node <uri>", "node to use (use 'https://api.avax-test.network' for test network)", "https://api.avax.network")
     .add_network_option();
 }
 

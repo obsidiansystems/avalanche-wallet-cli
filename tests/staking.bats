@@ -86,7 +86,7 @@ delegate() {
 
   NODE_ID=$(getNodeID)
 
-  run validate 4000AVAX 3.14159
+  run validate 4000AVAX 3.14159 $NODE_ID
   echo $output
   [ "$status" -eq 0 ]
   sleep 8

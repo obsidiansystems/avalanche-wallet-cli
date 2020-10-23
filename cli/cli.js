@@ -44,14 +44,24 @@ commander.Command.prototype.add_device_option = function() {
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "fuji");
+  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "avax");
 }
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
   return this
-    .requiredOption("-n, --node <uri>", "node to use (use 'https://testapi.avax.network' for test network)", "https://testapi.avax.network")
+    .requiredOption("-n, --node <uri>", "node to use (avax mainnet defaults to 'https://api.avax.network', fuji defaults to 'https://api.avax-test.network', local defaults to 'http://localhost:9650')", "network-default-node")
     .add_network_option();
+}
+
+const network_default_node = {
+  "avax" : "https://api.avax.network",
+  "fuji" : "https://api.avax-test.network",
+  "local" : "http://localhost:9650",
+};
+
+function get_network_node(options) {
+  return (options.node === "network-default-node" ? network_default_node[options.network] : options.node);
 }
 
 commander.Command.prototype.add_chain_option = function() {
@@ -66,7 +76,7 @@ function get_network_id_from_hrp(hrp) {
 }
 
 function ava_js_from_options(options) {
-  const uri = URI(options.node);
+  const uri = URI(get_network_node(options));
   const network_id = get_network_id_from_hrp(options.network);
   return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), network_id);
 }
@@ -231,13 +241,13 @@ program
 });
 
 program
-  .command("get-extended-public-key <path>")
+  .command("get-extended-public-key [path]")
   .description("get the extended public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
     return await withLedger(options, async ledger => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
-      path = AVA_BIP32_PREFIX + "/" + path;
+      path = AVA_BIP32_PREFIX + (path === undefined ? "" : "/" + path);
       console.error("Getting extended public key for path", path);
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const result = await get_extended_public_key(ledger, path);

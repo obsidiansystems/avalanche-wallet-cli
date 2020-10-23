@@ -29,18 +29,18 @@ atomicSwapImport(){
   $CLI import --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
-validate() {
-  amount=$1
-  fee=$2
-  $CLI validate --amount $amount --delegation-fee $fee --start 1m $CLI_ARGS $NODE_ARGS
-}
-
 getNodeID() {
   curl -X POST --data '{
     "jsonrpc":"2.0",
       "id"     :1,
       "method" :"info.getNodeID"
   }' -H 'content-type:application/json;' http://localhost:${NODE_HTTP_PORT}/ext/info | jq -j '.result.nodeID'
+}
+
+validate() {
+  amount=$1
+  fee=$2
+  $CLI validate --amount $amount --delegation-fee $fee --start 1m --node-id $node $CLI_ARGS $NODE_ARGS
 }
 
 delegate() {

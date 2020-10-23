@@ -846,6 +846,7 @@ program
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
   .requiredOption("--delegation-fee <fee>", "Delegation fee, percent")
+  .requiredOption("--node-id <node-id>", "The NodeID to be used in validating")
   .add_node_option()
   .add_device_option()
   .action(async options => {
@@ -857,7 +858,15 @@ program
       log_error_and_exit("Start time must be within two weeks from now");
     }
     const endTime = parseDateToUnixTime(options.end, new Date());
+    const oneYearFromStart = Math.floor(startTime / 1000 + 365 * (24 * 60 * 60))
+    const oneDayFromStart = Math.floor(startTime / 1000 + 1 * (24 * 60 * 60))
+    if (endTime > oneYearFromStart) {
+      log_error_and_exit("End time cannot be more than 1 year from start");
+    } else if (endTime < oneDayFromStart) {
+      log_error_and_exit("End time cannot be less than 1 day from start");
+    } 
     const stakeAmount = parseAmountWithError(options.amount);
+    const nodeId = options.nodeId;
     const delegationFee = Number.parseFloat(options.delegationFee);
     if (delegationFee < 2) {
       console.error("The minimum delegation fee is 2%.");
@@ -881,8 +890,7 @@ program
       const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
       // Rewards go to the staking addresses unless otherwise specified
       const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
-      const nodeID = await ava.Info().getNodeID();
-
+      
       console.error("Building TX...");
 
       const unsignedAddValidatorTx = await chain_objects.api.buildAddValidatorTx(
@@ -890,7 +898,7 @@ program
         fromAddresses, // Return the staked tokens to the staking addresses
         fromAddresses,
         [changeAddress],
-        nodeID,
+        nodeId,
         startTime,
         endTime,
         stakeAmount,
@@ -925,6 +933,13 @@ program
       log_error_and_exit("Start time must be within two weeks from now");
     }
     const endTime = parseDateToUnixTime(options.end, new Date());
+    const oneYearFromStart = Math.floor(startTime / 1000 + 365 * (24 * 60 * 60))
+    const oneDayFromStart = Math.floor(startTime / 1000 + 1 * (24 * 60 * 60))
+    if (endTime > oneYearFromStart) {
+      log_error_and_exit("End time cannot be more than 1 year from start");
+    } else if (endTime < oneDayFromStart) {
+      log_error_and_exit("End time cannot be less than 1 day from start");
+    } 
     const stakeAmount = parseAmountWithError(options.amount);
     const nodeId = options.nodeId;
     // Preemptively reject delegations which lie outside the validator time

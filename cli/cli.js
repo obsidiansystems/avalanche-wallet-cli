@@ -858,13 +858,16 @@ program
       log_error_and_exit("Start time must be within two weeks from now");
     }
     const endTime = parseDateToUnixTime(options.end, new Date());
-    const oneYearFromStart = Math.floor(startTime / 1000 + 365 * (24 * 60 * 60))
-    const oneDayFromStart = Math.floor(startTime / 1000 + 1 * (24 * 60 * 60))
-    if (endTime > oneYearFromStart) {
-      log_error_and_exit("End time cannot be more than 1 year from start");
-    } else if (endTime < oneDayFromStart) {
-      log_error_and_exit("End time cannot be less than 1 day from start");
-    } 
+    
+    //Enforce min/max for end of validating period
+    
+    //const oneYearFromStart = Math.floor(startTime / 1000 + 365 * (24 * 60 * 60))
+    //const oneDayFromStart = Math.floor(startTime / 1000 + 1 * (24 * 60 * 60))
+    //if (endTime > oneYearFromStart) {
+    //  log_error_and_exit("End time cannot be more than 1 year from start");
+    //} else if (endTime < oneDayFromStart) {
+    //  log_error_and_exit("End time cannot be less than 1 day from start");
+    //} 
     const stakeAmount = parseAmountWithError(options.amount);
     const nodeId = options.nodeId;
     const delegationFee = Number.parseFloat(options.delegationFee);
@@ -933,14 +936,18 @@ program
       log_error_and_exit("Start time must be within two weeks from now");
     }
     const endTime = parseDateToUnixTime(options.end, new Date());
-    const oneYearFromStart = Math.floor(startTime / 1000 + 365 * (24 * 60 * 60))
-    const oneDayFromStart = Math.floor(startTime / 1000 + 1 * (24 * 60 * 60))
-    if (endTime > oneYearFromStart) {
-      log_error_and_exit("End time cannot be more than 1 year from start");
-    } else if (endTime < oneDayFromStart) {
-      log_error_and_exit("End time cannot be less than 1 day from start");
-    } 
-    const stakeAmount = parseAmountWithError(options.amount);
+    
+    //Enforce min/max for end of delegating period
+    
+    //const oneYearFromStart = Math.floor(startTime / 1000 + 365 * (24 * 60 * 60))
+    //const oneDayFromStart = Math.floor(startTime / 1000 + 1 * (24 * 60 * 60))
+    //if (endTime > oneYearFromStart) {
+    //  log_error_and_exit("End time cannot be more than 1 year from start");
+    //} else if (endTime < oneDayFromStart) {
+    //  log_error_and_exit("End time cannot be less than 1 day from start");
+    //}     const stakeAmount = parseAmountWithError(options.amount);
+    
+  
     const nodeId = options.nodeId;
     // Preemptively reject delegations which lie outside the validator time
     // slot, because the node won't give us an error and the TX will never be

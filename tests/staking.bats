@@ -40,6 +40,7 @@ getNodeID() {
 validate() {
   amount=$1
   fee=$2
+  node=$3
   $CLI validate --amount $amount --delegation-fee $fee --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
 }
 

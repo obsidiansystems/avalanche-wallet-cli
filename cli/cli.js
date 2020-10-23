@@ -694,15 +694,8 @@ program
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
     const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
-      switch (source_chain_alias) {
-        case AvaJS.utils.PChainAlias:
-          signFunction = signHash_UnsignedTx;
-          break;
-        case AvaJS.utils.XChainAlias:
-          const version = await getParsedVersion(ledger);
-          signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
-          break;
-      }
+      const version = await getParsedVersion(ledger);
+      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -746,15 +739,15 @@ program
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
     return await withLedger(options, async ledger => {
+      const version = await getParsedVersion(ledger);
+      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
+      
       switch (destination_chain_alias) {
         case AvaJS.utils.XChainAlias:
           source_chain_id = AvaJS.utils.PlatformChainID;
-          const version = await getParsedVersion(ledger);
-          signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTxImport : sign_UnsignedTxImport
           break;
         case AvaJS.utils.PChainAlias:
           source_chain_id = ava.XChain().getBlockchainID();
-          signFunction = signHash_UnsignedTxImport;
           break;
       }
       if (automationEnabled(options)) flowAccept(ledger.transport);
@@ -867,6 +860,9 @@ program
       process.exit(1);
     }
     return await withLedger(options, async ledger => {
+      const version = await getParsedVersion(ledger);
+      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
+      
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -899,7 +895,7 @@ program
       );
       console.error("Unsigned Add Validator TX:");
       console.error(unsignedAddValidatorTx.toBuffer().toString("hex"));
-      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -947,6 +943,8 @@ program
       }
     }
     return await withLedger(options, async ledger => {
+      const version = await getParsedVersion(ledger);
+      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -977,7 +975,7 @@ program
       );
       console.error("Unsigned Add Delegator TX:");
       console.error(unsignedAddDelegatorTx.toBuffer().toString("hex"));
-      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);

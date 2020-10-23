@@ -84,12 +84,12 @@ delegate() {
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000" ]]
 
+  NODE_ID=$(getNodeID)
+
   run validate 4000AVAX 3.14159
   echo $output
   [ "$status" -eq 0 ]
   sleep 8
-
-  NODE_ID=$(getNodeID)
 
   run delegate 4999.996AVAX $NODE_ID
   echo $output

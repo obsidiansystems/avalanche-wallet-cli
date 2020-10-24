@@ -29,18 +29,19 @@ atomicSwapImport(){
   $CLI import --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
-validate() {
-  amount=$1
-  fee=$2
-  $CLI validate --amount $amount --delegation-fee $fee --start 1m $CLI_ARGS $NODE_ARGS
-}
-
 getNodeID() {
   curl -X POST --data '{
     "jsonrpc":"2.0",
       "id"     :1,
       "method" :"info.getNodeID"
   }' -H 'content-type:application/json;' http://localhost:${NODE_HTTP_PORT}/ext/info | jq -j '.result.nodeID'
+}
+
+validate() {
+  amount=$1
+  fee=$2
+  node=$3
+  $CLI validate --amount $amount --delegation-fee $fee --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
 }
 
 delegate() {
@@ -84,12 +85,12 @@ delegate() {
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000" ]]
 
-  run validate 4000AVAX 3.14159
+  NODE_ID=$(getNodeID)
+
+  run validate 4000AVAX 3.14159 $NODE_ID
   echo $output
   [ "$status" -eq 0 ]
   sleep 8
-
-  NODE_ID=$(getNodeID)
 
   run delegate 4999.996AVAX $NODE_ID
   echo $output

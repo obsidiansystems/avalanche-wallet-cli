@@ -416,7 +416,7 @@ program
         if (automationEnabled(options)) flowAccept(ledger.transport);
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, chain_objects, root_key, options.listAddresses);
-        console.log(balance.toString());
+        console.log(balance.toString() + " nAVAX");
       });
     } else {
       var result;
@@ -435,7 +435,7 @@ program
           console.error("Unrecognised address format");
           return;
       }
-      console.log(result.toString(10, 0));
+      console.log(result.toString(10, 0) + " nAVAX");
     }
 });
 
@@ -587,6 +587,8 @@ function parseAmount(str) {
       }
     } else if ((c == "." || c == ",") && !pastDecimal) {
       pastDecimal = true;
+    } else if (c == " ") {
+      // ignore space between number and units
     } else {
       remainingString = str.slice(i);
       break;
@@ -641,7 +643,7 @@ async function getParsedVersion(ledger, version) {
 program
   .command("transfer")
   .description("Transfer AVAX between addresses")
-  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -690,7 +692,7 @@ program
 program
   .command("export")
   .description("Export AVAX to another chain")
-  .requiredOption("--amount <amount>", "Amount to transfer, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
@@ -844,7 +846,7 @@ function parseDateToUnixTime(str, relativeTo) {
 program
   .command("validate")
   .description("Add a validator")
-  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to. If not provided, the next receiving address is used.")
@@ -916,7 +918,7 @@ program
 program
   .command("delegate")
   .description("Delegate stake to a validator")
-  .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
+  .requiredOption("--amount <amount>", "Amount to stake, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to. If not provided, the next receiving address is used.")

@@ -33,7 +33,6 @@ atomicSwapImport(){
 # run everything in a single test case
 @test "Ledger app scenario 1" {
   run getBalanceXChain
-  echo $output
   [ "$status" -eq 0 ]
   [[ $(echo "$output" | tail -n 1) == "0 nAVAX" ]]
 
@@ -92,7 +91,6 @@ atomicSwapImport(){
 
   run getBalanceXChain
   [ "$status" -eq 0 ]
-  echo $output
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "6000000 nAVAX" ]]
 
   # Set the balance to zero for other tests

@@ -57,7 +57,6 @@ delegate() {
   [ "$status" -eq 0 ]
 
   run getBalanceXChain
-  echo $output
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "10000000000000 nAVAX" ]]
 
@@ -68,31 +67,26 @@ delegate() {
   export P_CHAIN_ADDRESS=$(echo "$output" | tail -n1 | awk '{print $NF}')
 
   run atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
-  echo $output
   [ "$status" -eq 0 ]
   sleep 8
 
   run atomicSwapImport $P_CHAIN_ADDRESS
-  echo $output
   [ "$status" -eq 0 ]
   sleep 8
 
   run getBalancePChain
-  echo $output
   [ "$status" -eq 0 ]
   # [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "9999998000000 nAVAX" ]]
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000 nAVAX" ]]
 
   run validate "4000 AVAX" 3.14159
-  echo $output
   [ "$status" -eq 0 ]
   sleep 8
 
   NODE_ID=$(getNodeID)
 
   run delegate "4999.996 AVAX" $NODE_ID
-  echo $output
   [ "$status" -eq 0 ]
   sleep 8
 

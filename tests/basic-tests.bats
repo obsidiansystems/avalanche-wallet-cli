@@ -6,7 +6,7 @@ getAddress(){
 }
 
 getBalance(){
-  $CLI get-balance $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-balance $CLI_ARGS $NODE_ARGS
 }
 
 setupLedgerFromFaucet(){
@@ -36,7 +36,7 @@ transfer(){
 
   run getBalance
   [ "$status" -eq 0 ]
-  [[ "$(echo $output | awk '{print $NF}')" == "375000000 nAVAX" ]]
+  [[ "$(echo "$output" | tail -n 1)" == "375000000 nAVAX" ]]
 
 
   # echo "Starting Transfer test"
@@ -48,7 +48,7 @@ transfer(){
 
   run getBalance
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "371000000 nAVAX" ]]
+  [[ "$(echo "$output" | tail -n1)" == "371000000 nAVAX" ]]
 
   # Transfer the rest away so we are clean for other tests
   run transfer "370000000 nAVAX" $FAKE_USER
@@ -57,5 +57,5 @@ transfer(){
 
   run getBalance
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0 nAVAX" ]]
+  [[ "$(echo "$output" | tail -n1)" == "0 nAVAX" ]]
 }

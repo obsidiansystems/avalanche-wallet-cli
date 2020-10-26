@@ -3,19 +3,19 @@ setupLedgerFromFaucet(){
 }
 
 getNewReceiveAddressXChain(){
-  $CLI get-new-receive-address --chain X $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-new-receive-address --chain X $CLI_ARGS $NODE_ARGS
 }
 
 getNewReceiveAddressPChain(){
-  $CLI get-new-receive-address --chain P $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-new-receive-address --chain P $CLI_ARGS $NODE_ARGS
 }
 
 getBalanceXChain(){
-  $CLI get-balance $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-balance $CLI_ARGS $NODE_ARGS
 }
 
 getBalancePChain(){
-  $CLI get-balance --chain P $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-balance --chain P $CLI_ARGS $NODE_ARGS
 }
 
 atomicSwapExport(){
@@ -58,13 +58,13 @@ delegate() {
 
   run getBalanceXChain
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "10000000000000 nAVAX" ]]
+  [[ "$(echo "$output" | tail -n1)" == "10000000000000 nAVAX" ]]
 
   echo "Starting Staking Tests"
 
   run getNewReceiveAddressPChain
   [ "$status" -eq 0 ]
-  export P_CHAIN_ADDRESS=$(echo "$output" | tail -n1 | awk '{print $NF}')
+  export P_CHAIN_ADDRESS=$(echo "$output" | tail -n1)
 
   run atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
@@ -76,9 +76,9 @@ delegate() {
 
   run getBalancePChain
   [ "$status" -eq 0 ]
-  # [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "9999998000000 nAVAX" ]]
+  # [[ "$(echo "$output" | tail -n1)" == "9999998000000 nAVAX" ]]
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000 nAVAX" ]]
+  [[ "$(echo "$output" | tail -n1)" ==  "10000003000000 nAVAX" ]]
 
   run validate "4000 AVAX" 3.14159
   [ "$status" -eq 0 ]

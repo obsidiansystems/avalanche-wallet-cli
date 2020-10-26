@@ -587,6 +587,8 @@ function parseAmount(str) {
       }
     } else if ((c == "." || c == ",") && !pastDecimal) {
       pastDecimal = true;
+    } else if (c == " ") {
+      // ignore space between number and units
     } else {
       remainingString = str.slice(i);
       break;

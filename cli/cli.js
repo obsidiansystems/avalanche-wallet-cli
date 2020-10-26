@@ -704,15 +704,8 @@ program
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
     const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
-      switch (source_chain_alias) {
-        case AvaJS.utils.PChainAlias:
-          signFunction = signHash_UnsignedTx;
-          break;
-        case AvaJS.utils.XChainAlias:
-          const version = await getParsedVersion(ledger);
-          signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
-          break;
-      }
+      const version = await getParsedVersion(ledger);
+      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -756,15 +749,15 @@ program
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
     return await withLedger(options, async ledger => {
+      const version = await getParsedVersion(ledger);
+      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTxImport : sign_UnsignedTxImport
+      
       switch (destination_chain_alias) {
         case AvaJS.utils.XChainAlias:
           source_chain_id = AvaJS.utils.PlatformChainID;
-          const version = await getParsedVersion(ledger);
-          signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTxImport : sign_UnsignedTxImport
           break;
         case AvaJS.utils.PChainAlias:
           source_chain_id = ava.XChain().getBlockchainID();
-          signFunction = signHash_UnsignedTxImport;
           break;
       }
       if (automationEnabled(options)) flowAccept(ledger.transport);
@@ -854,7 +847,7 @@ program
   .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
-  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
+  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to. If not provided, the next receiving address is used.")
   .requiredOption("--delegation-fee <fee>", "Delegation fee, percent")
   .add_node_option()
   .add_device_option()
@@ -877,6 +870,9 @@ program
       process.exit(1);
     }
     return await withLedger(options, async ledger => {
+      const version = await getParsedVersion(ledger);
+      const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
+      
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -888,16 +884,17 @@ program
 
       console.error("Getting new change address...");
       // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-      const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+      const unusedAddresses = await get_first_unused_address(ava, chain_objects, root_key);
+      const changeAddress = unusedAddresses.change;
       // Rewards go to the staking addresses unless otherwise specified
-      const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
+      const rewardAddresses = options.rewardAddress === undefined ? [unusedAddresses.non_change] : [options.rewardAddress];
       const nodeID = await ava.Info().getNodeID();
 
       console.error("Building TX...");
 
       const unsignedAddValidatorTx = await chain_objects.api.buildAddValidatorTx(
         prepared.utxoset,
-        fromAddresses, // Return the staked tokens to the staking addresses
+        rewardAddresses, // Can't use fromAddresses here, that results in a "to" of hundreds of addresses.
         fromAddresses,
         [changeAddress],
         nodeID,
@@ -909,7 +906,7 @@ program
       );
       console.error("Unsigned Add Validator TX:");
       console.error(unsignedAddValidatorTx.toBuffer().toString("hex"));
-      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -922,7 +919,7 @@ program
   .requiredOption("--amount <amount>", "Amount to stake, e.g. 1.5AVAX or 100000nAVAX. If units are missing, AVAX is assumed.")
   .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
   .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
-  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to")
+  .option("--reward-address <address>", "P-Chain address the rewards should be delivered to. If not provided, the next receiving address is used.")
   .requiredOption("--node-id <node-id>", "ID of the node to delegate to")
   .add_node_option()
   .add_device_option()
@@ -957,6 +954,8 @@ program
       }
     }
     return await withLedger(options, async ledger => {
+      const version = await getParsedVersion(ledger);
+      const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -968,15 +967,16 @@ program
 
       console.error("Getting new change address...");
       // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-      const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+      const unusedAddresses = await get_first_unused_address(ava, chain_objects, root_key);
+      const changeAddress = unusedAddresses.change;
       // Rewards go to the staking addresses unless otherwise specified
-      const rewardAddresses = options.rewardAddress === undefined ? fromAddresses : [options.rewardAddress];
+      const rewardAddresses = options.rewardAddress === undefined ? [unusedAddresses.non_change] : [options.rewardAddress];
 
       console.error("Building TX...");
 
       const unsignedAddDelegatorTx = await chain_objects.api.buildAddDelegatorTx(
         prepared.utxoset,
-        fromAddresses, // Return the staked tokens to the staking addresses
+        rewardAddresses, // Return the staked tokens to the reward addresses.
         fromAddresses,
         [changeAddress],
         nodeId,
@@ -987,7 +987,7 @@ program
       );
       console.error("Unsigned Add Delegator TX:");
       console.error(unsignedAddDelegatorTx.toBuffer().toString("hex"));
-      const signedTx = await signHash_UnsignedTx(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -1159,6 +1159,11 @@ function acceptPrompts(expectedPrompts, selectPrompt, finalPrompt = selectPrompt
   }
 }
 
+const headerOnlyScreens = {
+  "Configuration": 1,
+  "Main menu": 1
+};
+
 async function automationStart(speculos, interactionFunc) {
   // If this doens't exist, we're running against a hardware ledger; just call
   // interactionFunc with no events iterator.
@@ -1205,7 +1210,7 @@ async function automationStart(speculos, interactionFunc) {
   let subscript = speculos.automationEvents.subscribe({
     next: evt => {
       // Wrap up two-line prompts into one:
-      if(evt.y == 3) {
+      if(evt.y == 3 && ! headerOnlyScreens[evt.text]) {
         header = evt.text;
         return; // The top line comes out first, so now wait for the next draw.
       } else {

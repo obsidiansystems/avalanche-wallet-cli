@@ -2,11 +2,11 @@ FAKE_USER="X-local1cj7gnk75hdlu9r3hvrr2eksq8zprmqd8ghxpve"
 
 getAddress(){
   path=$1
-  $CLI get-address $path $CLI_ARGS
+  $CLI get-address $path $CLI_ARGS | tail -n 1
 }
 
 getBalance(){
-  $CLI get-balance $CLI_ARGS $NODE_ARGS
+  $CLI get-balance $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 setupLedgerFromFaucet(){
@@ -22,40 +22,22 @@ transfer(){
 # bats will run each test multiple times, so to get around this (for the time being) we
 # run everything in a single test case
 @test "Ledger app scenario 1" {
-  run getAddress '0/1'
-  [ "$status" -eq 0 ]
-  [[ $(echo "$output" | tail -n 1) == "X-local1drppshkst2ccygyq37m2z9e3ex2jhkd2j49aht" ]]
+  [[ $(getAddress '0/1') == "X-local1drppshkst2ccygyq37m2z9e3ex2jhkd2j49aht" ]]
 
-  run getBalance
-  [ "$status" -eq 0 ]
-  [[ $(echo "$output" | tail -n 1) == "0 nAVAX" ]]
+  [[ $(getBalance) == "0 nAVAX" ]]
 
+  setupLedgerFromFaucet
 
-  run setupLedgerFromFaucet
-  [ "$status" -eq 0 ]
+  [[ "$(getBalance)" == "375000000 nAVAX" ]]
 
-  run getBalance
-  [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n 1)" == "375000000 nAVAX" ]]
-
-
-  # echo "Starting Transfer test"
-  run transfer "3000000 nAVAX" $FAKE_USER
-  [ "$status" -eq 0 ]
+  transfer "3000000 nAVAX" $FAKE_USER
   sleep 8
 
-  # echo getBalance
-
-  run getBalance
-  [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1)" == "371000000 nAVAX" ]]
+  [[ "$(getBalance)" == "371000000 nAVAX" ]]
 
   # Transfer the rest away so we are clean for other tests
-  run transfer "370000000 nAVAX" $FAKE_USER
-  [ "$status" -eq 0 ]
+  transfer "370000000 nAVAX" $FAKE_USER
   sleep 8
 
-  run getBalance
-  [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1)" == "0 nAVAX" ]]
+  [[ "$(getBalance)" == "0 nAVAX" ]]
 }

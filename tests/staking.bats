@@ -3,19 +3,19 @@ setupLedgerFromFaucet(){
 }
 
 getNewReceiveAddressXChain(){
-  $CLI get-new-receive-address --chain X $CLI_ARGS $NODE_ARGS
+  $CLI get-new-receive-address --chain X $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getNewReceiveAddressPChain(){
-  $CLI get-new-receive-address --chain P $CLI_ARGS $NODE_ARGS
+  $CLI get-new-receive-address --chain P $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getBalanceXChain(){
-  $CLI get-balance $CLI_ARGS $NODE_ARGS
+  $CLI get-balance $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getBalancePChain(){
-  $CLI get-balance --chain P $CLI_ARGS $NODE_ARGS
+  $CLI get-balance --chain P $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 atomicSwapExport(){
@@ -53,41 +53,28 @@ delegate() {
 # run everything in a single test case
 @test "Ledger app scenario 1" {
 
-  run setupLedgerFromFaucet
-  [ "$status" -eq 0 ]
+  setupLedgerFromFaucet
 
-  run getBalanceXChain
-  [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1)" == "10000000000000 nAVAX" ]]
+  [[ "$(getBalanceXChain)" == "10000000000000 nAVAX" ]]
 
-  echo "Starting Staking Tests"
+  P_CHAIN_ADDRESS=$(getNewReceiveAddressPChain)
 
-  run getNewReceiveAddressPChain
-  [ "$status" -eq 0 ]
-  export P_CHAIN_ADDRESS=$(echo "$output" | tail -n1)
-
-  run atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
-  [ "$status" -eq 0 ]
+  atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
   sleep 8
 
-  run atomicSwapImport $P_CHAIN_ADDRESS
-  [ "$status" -eq 0 ]
+  atomicSwapImport $P_CHAIN_ADDRESS
   sleep 8
 
-  run getBalancePChain
-  [ "$status" -eq 0 ]
-  # [[ "$(echo "$output" | tail -n1)" == "9999998000000 nAVAX" ]]
+  # [[ "$(getBalancePChain)" == "9999998000000 nAVAX" ]]
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
-  [[ "$(echo "$output" | tail -n1)" ==  "10000003000000 nAVAX" ]]
+  [[ "$(getBalancePChain)" ==  "10000003000000 nAVAX" ]]
 
-  run validate "4000 AVAX" 3.14159
-  [ "$status" -eq 0 ]
+  validate "4000 AVAX" 3.14159
   sleep 8
 
   NODE_ID=$(getNodeID)
 
-  run delegate "4999.996 AVAX" $NODE_ID
-  [ "$status" -eq 0 ]
+  delegate "4999.996 AVAX" $NODE_ID
   sleep 8
 
 }

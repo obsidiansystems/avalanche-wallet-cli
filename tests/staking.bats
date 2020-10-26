@@ -59,7 +59,7 @@ delegate() {
   run getBalanceXChain
   echo $output
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "10000000000000" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "10000000000000 nAVAX" ]]
 
   echo "Starting Staking Tests"
 
@@ -80,9 +80,9 @@ delegate() {
   run getBalancePChain
   echo $output
   [ "$status" -eq 0 ]
-  # [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "9999998000000" ]]
+  # [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "9999998000000 nAVAX" ]]
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000 nAVAX" ]]
 
   run validate 4000AVAX 3.14159
   echo $output

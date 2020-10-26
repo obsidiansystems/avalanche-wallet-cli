@@ -97,7 +97,7 @@ atomicSwapImport(){
 
   # Set the balance to zero for other tests
 
-  run atomicSwapExport 5000000nAVAX $P_CHAIN_ADDRESS
+  run atomicSwapExport "5000000 nAVAX" $P_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
   sleep 8
 

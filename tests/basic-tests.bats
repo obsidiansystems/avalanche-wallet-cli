@@ -16,7 +16,7 @@ setupLedgerFromFaucet(){
 transfer(){
   amount=$1
   toAccount=$2
-  $CLI transfer --amount $amount --to $toAccount $CLI_ARGS $NODE_ARGS
+  $CLI transfer --amount "$amount" --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
 # bats will run each test multiple times, so to get around this (for the time being) we

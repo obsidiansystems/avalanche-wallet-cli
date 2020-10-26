@@ -21,7 +21,7 @@ getBalancePChain(){
 atomicSwapExport(){
   amount=$1
   toAccount=$2
-  $CLI export --amount $amount --to $toAccount $CLI_ARGS $NODE_ARGS
+  $CLI export --amount "$amount" --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
 atomicSwapImport(){
@@ -32,7 +32,7 @@ atomicSwapImport(){
 validate() {
   amount=$1
   fee=$2
-  $CLI validate --amount $amount --delegation-fee $fee --start 1m $CLI_ARGS $NODE_ARGS
+  $CLI validate --amount "$amount" --delegation-fee $fee --start 1m $CLI_ARGS $NODE_ARGS
 }
 
 getNodeID() {
@@ -46,7 +46,7 @@ getNodeID() {
 delegate() {
   amount=$1
   node=$2
-  $CLI delegate --amount $amount --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
+  $CLI delegate --amount "$amount" --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
 }
 
 # bats will run each test multiple times, so to get around this (for the time being) we
@@ -67,7 +67,7 @@ delegate() {
   [ "$status" -eq 0 ]
   export P_CHAIN_ADDRESS=$(echo "$output" | tail -n1 | awk '{print $NF}')
 
-  run atomicSwapExport 9999.999AVAX $P_CHAIN_ADDRESS
+  run atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
   echo $output
   [ "$status" -eq 0 ]
   sleep 8
@@ -84,14 +84,14 @@ delegate() {
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
   [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000 nAVAX" ]]
 
-  run validate 4000AVAX 3.14159
+  run validate "4000 AVAX" 3.14159
   echo $output
   [ "$status" -eq 0 ]
   sleep 8
 
   NODE_ID=$(getNodeID)
 
-  run delegate 4999.996AVAX $NODE_ID
+  run delegate "4999.996 AVAX" $NODE_ID
   echo $output
   [ "$status" -eq 0 ]
   sleep 8

@@ -28,7 +28,7 @@ transfer(){
 
   run getBalance
   [ "$status" -eq 0 ]
-  [[ $(echo "$output" | tail -n 1) == "0" ]]
+  [[ $(echo "$output" | tail -n 1) == "0 nAVAX" ]]
 
 
   run setupLedgerFromFaucet
@@ -36,11 +36,11 @@ transfer(){
 
   run getBalance
   [ "$status" -eq 0 ]
-  [[ "$(echo $output | awk '{print $NF}')" == "375000000" ]]
+  [[ "$(echo $output | awk '{print $NF}')" == "375000000 nAVAX" ]]
 
 
   # echo "Starting Transfer test"
-  run transfer 3000000nAVAX $FAKE_USER
+  run transfer "3000000 nAVAX" $FAKE_USER
   [ "$status" -eq 0 ]
   sleep 8
 
@@ -48,14 +48,14 @@ transfer(){
 
   run getBalance
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "371000000" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "371000000 nAVAX" ]]
 
   # Transfer the rest away so we are clean for other tests
-  run transfer 370000000nAVAX $FAKE_USER
+  run transfer "370000000 nAVAX" $FAKE_USER
   [ "$status" -eq 0 ]
   sleep 8
 
   run getBalance
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0 nAVAX" ]]
 }

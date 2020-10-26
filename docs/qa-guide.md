@@ -121,7 +121,7 @@ This function can also be used to check the balance of a particular address.
 This is done by running `cli/cli.js get-balance X-address` where `X-address`
 sholud be replaced by an address you've funded via the faucet. Provided you
 haven't transferred, the balance of that individual address should be
-1,000,000,000 (the current value the faucet provides).
+1,000,000,000 nAVAX (the current value the faucet provides).
 
 ## transfer
 
@@ -213,8 +213,8 @@ First you should check you have enough funds by running:
 cli/cli.js get-balance
 ```
 
-You should have at least 10,000,000. Also note this value down, we'll be
-checking it later.
+You should have at least 10,000,000 nAVAX. Also note this value down,
+we'll be checking it later.
 
 ```bash
 export P_CHAIN_ADDRESS=$(cli/cli.js get-new-receive-address --chain P)
@@ -236,8 +236,8 @@ run:
 cli/cli.js get-balance
 ```
 
-and verify that this value has dropped by 5,000,000 (transfer amount) and the
-transaction fee (whatever the ledger shows, currently 1,000,000).
+and verify that this value has dropped by 5,000,000 nAVAX (transfer amount) and the
+transaction fee (whatever the ledger shows, currently 1,000,000 nAVAX).
 
 ## import (X-Chain to P-Chain)
 
@@ -266,15 +266,15 @@ balance of your P-Chain address `$P_CHAIN_ADDRESS` has increased:
 cli/cli.js get-balance --chain P
 ```
 
-This should return your previous balance, plus 5,000,000, minus the transaction
-fee (currently 1,000,000). You should also check the `$P_CHAIN_ADDRESS` balance
+This should return your previous balance, plus 5,000,000 nAVAX, minus the transaction
+fee (currently 1,000,000 nAVAX). You should also check the `$P_CHAIN_ADDRESS` balance
 directly:
 
 ```bash
 cli/cli.js get-balance $P_CHAIN_ADDRESS
 ```
 
-This should be 5,000,000, minus the transaction fee.
+This should be 5,000,000 nAVAX, minus the transaction fee.
 
 ## export (P-Chain to X-Chain)
 
@@ -303,9 +303,9 @@ P-Chain balance has decreased:
 cli/cli.js get-balance --chain P
 ```
 
-It should have decreased by 3,000,000 (the transfer amount) and also decreased
-by an additional amount equal to the transaction fee, which is currently
-1,000,000.
+It should have decreased by 3,000,000 nAVAX (the transfer amount) and
+also decreased by an additional amount equal to the transaction fee,
+which is currently 1,000,000 nAVAX.
 
 ## import (P-Chain to X-Chain)
 
@@ -326,14 +326,14 @@ and the following prompt should be `Sign Import`. Scroll to `Next` and continue,
 the screen should change to `From P chain` along with the amount you're
 importing (minus the transaction fee, which is shown in the next step). Verify
 that the transaction fee and the amount shown by the ledger add up to equal the
-amount you exported in the previous step (3,000,000). Accept the remaining
+amount you exported in the previous step (3,000,000 nAVAX). Accept the remaining
 prompts, and check the balance of your X-Chain addresses has increased:
 
 ```bash
 cli/cli.js get-balance --chain X
 ```
 
-This should have increased by 3,000,000, minus the transaction fee (i.e. it
+This should have increased by 3,000,000 nAVAX, minus the transaction fee (i.e. it
 should increase by the amount the ledger displayed). You should also check the
 `$X_CHAIN_ADDRESS` balance directly:
 
@@ -341,4 +341,4 @@ should increase by the amount the ledger displayed). You should also check the
 cli/cli.js get-balance $X_CHAIN_ADDRESS
 ```
 
-This should be 3,000,000, minus the transaction fee.
+This should be 3,000,000 nAVAX, minus the transaction fee.

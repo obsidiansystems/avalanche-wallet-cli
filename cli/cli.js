@@ -416,7 +416,7 @@ program
         if (automationEnabled(options)) flowAccept(ledger.transport);
         const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, chain_objects, root_key, options.listAddresses);
-        console.log(balance.toString());
+        console.log(balance.toString() + " nAVAX");
       });
     } else {
       var result;
@@ -435,7 +435,7 @@ program
           console.error("Unrecognised address format");
           return;
       }
-      console.log(result.toString(10, 0));
+      console.log(result.toString(10, 0) + " nAVAX");
     }
 });
 

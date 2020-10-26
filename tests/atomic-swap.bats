@@ -35,14 +35,14 @@ atomicSwapImport(){
   run getBalanceXChain
   echo $output
   [ "$status" -eq 0 ]
-  [[ $(echo "$output" | tail -n 1) == "0" ]]
+  [[ $(echo "$output" | tail -n 1) == "0 nAVAX" ]]
 
   run setupLedgerFromFaucet
   [ "$status" -eq 0 ]
 
   run getBalanceXChain
   [ "$status" -eq 0 ]
-  [[ "$(echo $output | awk '{print $NF}')" == "10000000" ]]
+  [[ "$(echo $output | awk '{print $NF}')" == "10000000 nAVAX" ]]
 
   echo "Starting Atomic Swap Tests"
 
@@ -52,7 +52,7 @@ atomicSwapImport(){
 
   run getBalancePChain
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0 nAVAX" ]]
 
   run atomicSwapExport 4000000nAVAX $P_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
@@ -60,11 +60,11 @@ atomicSwapImport(){
 
   run getBalanceXChain
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "5000000" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "5000000 nAVAX" ]]
 
   run getBalancePChain
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0 nAVAX" ]]
 
   run atomicSwapImport $P_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
@@ -72,7 +72,7 @@ atomicSwapImport(){
 
   run getBalancePChain
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "3000000" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "3000000 nAVAX" ]]
 
   run getNewReceiveAddressXChain
   [ "$status" -eq 0 ]
@@ -84,7 +84,7 @@ atomicSwapImport(){
 
   run getBalancePChain
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0 nAVAX" ]]
 
   run atomicSwapImport $X_CHAIN_ADDRESS
   [ "$status" -eq 0 ]
@@ -93,7 +93,7 @@ atomicSwapImport(){
   run getBalanceXChain
   [ "$status" -eq 0 ]
   echo $output
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "6000000" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "6000000 nAVAX" ]]
 
   # Set the balance to zero for other tests
 
@@ -103,6 +103,6 @@ atomicSwapImport(){
 
   run getBalanceXChain
   [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0" ]]
+  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "0 nAVAX" ]]
 
 }

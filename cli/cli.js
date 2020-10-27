@@ -867,11 +867,11 @@ program
     //Enforce min/max for end of validating period
 
     const oneYearFromStart = startTime.add(new BN(365 * (24 * 60 * 60)));
-    const oneDayFromStart = startTime.add(new BN(1 * (24 * 60 * 60)));
+    const twoWeeksFromStart = startTime.add(new BN(14 * (24 * 60 * 60)));
     if (endTime > oneYearFromStart) {
         log_error_and_exit("End time cannot be more than 1 year from start");
-    } else if (endTime < oneDayFromStart) {
-        log_error_and_exit("End time cannot be less than 1 day from start");
+    } else if (endTime < twoWeeksFromStart) {
+        log_error_and_exit("End time cannot be less than 2 weeks from start");
     }
     const stakeAmount = parseAmountWithError(options.amount);
     const nodeId = options.nodeId;
@@ -949,12 +949,12 @@ program
     //Enforce min/max for end of delegating period
 
     const oneYearFromStart = startTime.add(new BN(365 * (24 * 60 * 60)));
-    const oneDayFromStart = startTime.add(new BN(1 * (24 * 60 * 60)));
+    const twoWeeksFromStart = startTime.add(new BN(14 * (24 * 60 * 60)));
     if (endTime > oneYearFromStart) {
       log_error_and_exit("End time cannot be more than 1 year from start");
     }
-    if (endTime < oneDayFromStart) {
-      log_error_and_exit("End time cannot be less than 1 day from start");
+    if (endTime < twoWeeksFromStart) {
+      log_error_and_exit("End time cannot be less than 2 weeks from start");
     }
     const stakeAmount = parseAmountWithError(options.amount);
     const nodeId = options.nodeId;

@@ -21,7 +21,7 @@ getBalancePChain(){
 atomicSwapExport(){
   amount=$1
   toAccount=$2
-  $CLI export --amount $amount --to $toAccount $CLI_ARGS $NODE_ARGS
+  $CLI export --amount "$amount" --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
 atomicSwapImport(){
@@ -47,54 +47,35 @@ validate() {
 delegate() {
   amount=$1
   node=$2
-  $CLI delegate --amount $amount --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
+  $CLI delegate --amount "$amount" --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
 }
 
 # bats will run each test multiple times, so to get around this (for the time being) we
 # run everything in a single test case
 @test "Ledger app scenario 1" {
 
-  run setupLedgerFromFaucet
-  [ "$status" -eq 0 ]
+  setupLedgerFromFaucet
 
-  run getBalanceXChain
-  echo $output
-  [ "$status" -eq 0 ]
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "10000000000000" ]]
+  [[ "$(getBalanceXChain)" == "10000000000000 nAVAX" ]]
 
-  echo "Starting Staking Tests"
+  P_CHAIN_ADDRESS=$(getNewReceiveAddressPChain)
 
-  run getNewReceiveAddressPChain
-  [ "$status" -eq 0 ]
-  export P_CHAIN_ADDRESS=$(echo "$output" | tail -n1 | awk '{print $NF}')
-
-  run atomicSwapExport 9999.999AVAX $P_CHAIN_ADDRESS
-  echo $output
-  [ "$status" -eq 0 ]
+  atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
   sleep 8
 
-  run atomicSwapImport $P_CHAIN_ADDRESS
-  echo $output
-  [ "$status" -eq 0 ]
+  atomicSwapImport $P_CHAIN_ADDRESS
   sleep 8
 
-  run getBalancePChain
-  echo $output
-  [ "$status" -eq 0 ]
-  # [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" == "9999998000000" ]]
+  # [[ "$(getBalancePChain)" == "9999998000000 nAVAX" ]]
   # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
-  [[ "$(echo "$output" | tail -n1 | awk '{print $NF}')" ==  "10000003000000" ]]
+  [[ "$(getBalancePChain)" ==  "10000003000000 nAVAX" ]]
 
   NODE_ID=$(getNodeID)
 
-  run validate 4000AVAX 3.14159 $NODE_ID
-  echo $output
-  [ "$status" -eq 0 ]
+  validate 4000AVAX 3.14159 $NODE_ID
   sleep 8
 
-  run delegate 4999.996AVAX $NODE_ID
-  echo $output
-  [ "$status" -eq 0 ]
+  delegate 4999.996AVAX $NODE_ID
   sleep 8
 
 }

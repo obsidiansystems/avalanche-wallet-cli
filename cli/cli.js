@@ -870,7 +870,7 @@ program
     const twoWeeksFromStart = startTime.add(new BN(14 * (24 * 60 * 60)));
     if (endTime > oneYearFromStart) {
         log_error_and_exit("End time cannot be more than 1 year from start");
-    } else if (endTime < oneDayFromStart) {
+    } else if (endTime < twoWeeksFromStart) {
         log_error_and_exit("End time cannot be less than 2 weeks from start");
     }
     const stakeAmount = parseAmountWithError(options.amount);
@@ -953,7 +953,7 @@ program
     if (endTime > oneYearFromStart) {
       log_error_and_exit("End time cannot be more than 1 year from start");
     }
-    if (endTime < oneDayFromStart) {
+    if (endTime < twoWeeksFromStart) {
       log_error_and_exit("End time cannot be less than 2 weeks from start");
     }
     const stakeAmount = parseAmountWithError(options.amount);

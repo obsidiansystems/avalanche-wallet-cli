@@ -862,7 +862,7 @@ program
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");
     }
-    const endTime = parseDateToUnixTime(options.endTime, new Date());
+    const endTime = parseDateToUnixTime(options.end, new Date());
 
     //Enforce min/max for end of validating period
 
@@ -944,7 +944,7 @@ program
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");
     }
-    const endTime = parseDateToUnixTime(options.endTime, new Date());
+    const endTime = parseDateToUnixTime(options.end, new Date());
 
     //Enforce min/max for end of delegating period
 

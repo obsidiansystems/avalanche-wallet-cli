@@ -857,7 +857,7 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    const startTime = parseDateToUnixTime(options.startTime, new Date());
+    const startTime = parseDateToUnixTime(options.start, new Date());
     const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");
@@ -939,7 +939,7 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    const startTime = parseDateToUnixTime(options.startTime, new Date());
+    const startTime = parseDateToUnixTime(options.start, new Date());
     const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");

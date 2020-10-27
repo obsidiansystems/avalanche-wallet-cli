@@ -847,8 +847,8 @@ program
   .command("validate")
   .description("Add a validator")
   .requiredOption("--amount <amount>", "Amount to stake, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
-  .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
-  .option("--end <time>", "End time, relative to the start time (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
+  .option("--start-time <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
+  .option("--end-time <time>", "End time, relative to the start time (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to. If not provided, the next receiving address is used.")
   .requiredOption("--delegation-fee <fee>", "Delegation fee, percent")
   .requiredOption("--node-id <node-id>", "The NodeID to be used in validating")
@@ -857,12 +857,12 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    const startTime = parseDateToUnixTime(options.start, new Date());
+    const startTime = parseDateToUnixTime(options.startTime, new Date());
     const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");
     }
-    const endTime = parseDateToUnixTime(options.end, new Date());
+    const endTime = parseDateToUnixTime(options.endTime, new Date());
 
     //Enforce min/max for end of validating period
 
@@ -939,12 +939,12 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    const startTime = parseDateToUnixTime(options.start, new Date());
+    const startTime = parseDateToUnixTime(options.startTime, new Date());
     const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");
     }
-    const endTime = parseDateToUnixTime(options.end, new Date());
+    const endTime = parseDateToUnixTime(options.endTime, new Date());
 
     //Enforce min/max for end of delegating period
 

@@ -457,20 +457,23 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
     if (automationEnabled(options))
       await flowMultiPrompt(ledger.transport);
-    const result = await ledger.signTransaction(prefix, suffixes, buff);
+    let changePath = null;
+    if (changeAddress != null)
+      changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
+    const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
   }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 /* An unsafe version of the above function, just signs a hash */
-async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
@@ -482,20 +485,23 @@ async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path,
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
-async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
     if (automationEnabled(options))
       await flowMultiPrompt(ledger.transport);
-    const result = await ledger.signTransaction(prefix, suffixes, buff);
+    let changePath = null;
+    if (changeAddress != null)
+      changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
+    const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
   }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 /* An unsafe version of the above function, just signs a hash */
-async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
@@ -682,7 +688,7 @@ program
       );
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -732,7 +738,7 @@ program
       );
       console.error("Unsigned Export TX:");
       console.error(unsignedExportTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await source_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -780,7 +786,7 @@ program
       );
       console.error("Unsigned Import TX:");
       console.error(unsignedImportTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, null, ledger, options);
       console.error("Issuing TX...");
       const txid = await destination_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -919,7 +925,7 @@ program
       );
       console.error("Unsigned Add Validator TX:");
       console.error(unsignedAddValidatorTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -1011,7 +1017,7 @@ program
       );
       console.error("Unsigned Add Delegator TX:");
       console.error(unsignedAddDelegatorTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);

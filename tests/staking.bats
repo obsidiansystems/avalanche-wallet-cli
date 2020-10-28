@@ -41,13 +41,13 @@ validate() {
   amount=$1
   fee=$2
   node=$3
-  $CLI validate --amount $amount --delegation-fee $fee --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
+  $CLI validate --amount $amount --delegation-fee $fee --start-time 1m --end-time 30d --node-id $node $CLI_ARGS $NODE_ARGS
 }
 
 delegate() {
   amount=$1
   node=$2
-  $CLI delegate --amount "$amount" --start 1m --end 30d --node-id $node $CLI_ARGS $NODE_ARGS
+  $CLI delegate --amount "$amount" --start-time 1m --end-time 30d --node-id $node $CLI_ARGS $NODE_ARGS
 }
 
 # bats will run each test multiple times, so to get around this (for the time being) we

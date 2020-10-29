@@ -35,22 +35,22 @@ function log_error_and_exit(err) {
 // Convenience function to add the --device option
 commander.Command.prototype.add_device_option = function() {
   return this
-    .option("--device <device>", "device to use")
-    .option("--wallet <wallet-id>", "use a device with this wallet ID")
-    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
-    .option("--speculos-button-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos buttons", parseInt)
-    .option("--speculos-automation-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos screens", parseInt)
+    .option("--device <device>", "Device to use for signing")
+    .option("--wallet <wallet-id>", "Use a device with this wallet ID")
+    .option("--speculos <apdu-port>", "(for testing) Use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
+    .option("--speculos-button-port <port>", "(requires --speculos) Use the given port for automatically interacting with speculos buttons", parseInt)
+    .option("--speculos-automation-port <port>", "(requires --speculos) Use the given port for automatically interacting with speculos screens", parseInt)
   ;
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "avax");
+  return this.requiredOption("--network <network>", "Network name [avax, fuji, local]", "avax");
 }
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
   return this
-    .requiredOption("-n, --node <uri>", "node to use (avax mainnet defaults to 'https://api.avax.network', fuji defaults to 'https://api.avax-test.network', local defaults to 'http://localhost:9650')", "network-default-node")
+    .requiredOption("-n, --node <uri>", "Node to use (avax mainnet defaults to 'https://api.avax.network', fuji defaults to 'https://api.avax-test.network', local defaults to 'http://localhost:9650')", "network-default-node")
     .add_network_option();
 }
 
@@ -177,7 +177,7 @@ function requestLedgerAccept() {
 
 const program = new commander.Command();
 
-program.version("0.0.1");
+program.version("0.2.0");
 
 program
   .command("list-devices")
@@ -219,7 +219,7 @@ program
 
 program
   .command("get-address <path>")
-  .description("get the address of a derivation path. <path> should be 'change/address_index'")
+  .description("Get the address of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .add_node_option()
   .add_chain_option()
@@ -242,7 +242,7 @@ program
 
 program
   .command("get-extended-public-key [path]")
-  .description("get the extended public key of a derivation path. <path> should be 'change/address_index'")
+  .description("Get the extended public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
     return await withLedger(options, async ledger => {
@@ -457,20 +457,23 @@ program
 });
 
 /* Adapted from avm/tx.ts for class UnsignedTx */
-async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
     if (automationEnabled(options))
       await flowMultiPrompt(ledger.transport);
-    const result = await ledger.signTransaction(prefix, suffixes, buff);
+    let changePath = null;
+    if (changeAddress != null)
+      changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
+    const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
   }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 /* An unsafe version of the above function, just signs a hash */
-async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
@@ -482,20 +485,23 @@ async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path,
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
-async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
     if (automationEnabled(options))
       await flowMultiPrompt(ledger.transport);
-    const result = await ledger.signTransaction(prefix, suffixes, buff);
+    let changePath = null;
+    if (changeAddress != null)
+      changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
+    const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
   }, options, ledger);
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 /* An unsafe version of the above function, just signs a hash */
-async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, ledger, options) {
+async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
@@ -682,7 +688,7 @@ program
       );
       console.error("Unsigned TX:");
       console.error(unsignedTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, chain_objects, unsignedTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -732,7 +738,7 @@ program
       );
       console.error("Unsigned Export TX:");
       console.error(unsignedExportTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await source_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -780,7 +786,7 @@ program
       );
       console.error("Unsigned Import TX:");
       console.error(unsignedImportTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, null, ledger, options);
       console.error("Issuing TX...");
       const txid = await destination_chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -847,8 +853,8 @@ program
   .command("validate")
   .description("Add a validator")
   .requiredOption("--amount <amount>", "Amount to stake, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
-  .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
-  .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
+  .option("--start-time <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
+  .option("--end-time <time>", "End time, relative to the start time (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to. If not provided, the next receiving address is used.")
   .requiredOption("--delegation-fee <fee>", "Delegation fee, percent")
   .requiredOption("--node-id <node-id>", "The NodeID to be used in validating")
@@ -857,21 +863,21 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    const startTime = parseDateToUnixTime(options.start, new Date());
+    const startTime = parseDateToUnixTime(options.startTime, new Date());
     const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");
     }
-    const endTime = parseDateToUnixTime(options.end, new Date());
+    const endTime = parseDateToUnixTime(options.endTime, new Date());
 
     //Enforce min/max for end of validating period
 
     const oneYearFromStart = startTime.add(new BN(365 * (24 * 60 * 60)));
-    const oneDayFromStart = startTime.add(new BN(1 * (24 * 60 * 60)));
+    const twoWeeksFromStart = startTime.add(new BN(14 * (24 * 60 * 60)));
     if (endTime > oneYearFromStart) {
         log_error_and_exit("End time cannot be more than 1 year from start");
-    } else if (endTime < oneDayFromStart) {
-        log_error_and_exit("End time cannot be less than 1 day from start");
+    } else if (endTime < twoWeeksFromStart) {
+        log_error_and_exit("End time cannot be less than 2 weeks from start");
     }
     const stakeAmount = parseAmountWithError(options.amount);
     const nodeId = options.nodeId;
@@ -919,7 +925,7 @@ program
       );
       console.error("Unsigned Add Validator TX:");
       console.error(unsignedAddValidatorTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddValidatorTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);
@@ -930,8 +936,8 @@ program
   .command("delegate")
   .description("Delegate stake to a validator")
   .requiredOption("--amount <amount>", "Amount to stake, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
-  .option("--start <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
-  .option("--end <time>", "End time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
+  .option("--start-time <time>", "Start time, relative to now (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "10m")
+  .option("--end-time <time>", "End time, relative to the start time (e.g. 10d5h30m), or absolute (2020-10-20 18:00)", "365d")
   .option("--reward-address <address>", "P-Chain address the rewards should be delivered to. If not provided, the next receiving address is used.")
   .requiredOption("--node-id <node-id>", "ID of the node to delegate to")
   .add_node_option()
@@ -939,22 +945,22 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options)
     const chain_objects = make_chain_objects(ava, AvaJS.utils.PChainAlias);
-    const startTime = parseDateToUnixTime(options.start, new Date());
+    const startTime = parseDateToUnixTime(options.startTime, new Date());
     const twoWeeksFromNow = Math.floor(Date.now() / 1000 + 14 * (24 * 60 * 60))
     if (startTime > twoWeeksFromNow) {
       log_error_and_exit("Start time must be within two weeks from now");
     }
-    const endTime = parseDateToUnixTime(options.end, new Date());
+    const endTime = parseDateToUnixTime(options.endTime, new Date());
 
     //Enforce min/max for end of delegating period
 
     const oneYearFromStart = startTime.add(new BN(365 * (24 * 60 * 60)));
-    const oneDayFromStart = startTime.add(new BN(1 * (24 * 60 * 60)));
+    const twoWeeksFromStart = startTime.add(new BN(14 * (24 * 60 * 60)));
     if (endTime > oneYearFromStart) {
       log_error_and_exit("End time cannot be more than 1 year from start");
     }
-    if (endTime < oneDayFromStart) {
-      log_error_and_exit("End time cannot be less than 1 day from start");
+    if (endTime < twoWeeksFromStart) {
+      log_error_and_exit("End time cannot be less than 2 weeks from start");
     }
     const stakeAmount = parseAmountWithError(options.amount);
     const nodeId = options.nodeId;
@@ -1011,7 +1017,7 @@ program
       );
       console.error("Unsigned Add Delegator TX:");
       console.error(unsignedAddDelegatorTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, ledger, options);
+      const signedTx = await signFunction(ava, chain_objects, unsignedAddDelegatorTx, prepared.addr_to_path, changeAddress, ledger, options);
       console.error("Issuing TX...");
       const txid = await chain_objects.api.issueTx(signedTx);
       console.log(txid);

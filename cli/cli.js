@@ -35,22 +35,22 @@ function log_error_and_exit(err) {
 // Convenience function to add the --device option
 commander.Command.prototype.add_device_option = function() {
   return this
-    .option("--device <device>", "device to use")
-    .option("--wallet <wallet-id>", "use a device with this wallet ID")
-    .option("--speculos <apdu-port>", "(for testing) use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
-    .option("--speculos-button-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos buttons", parseInt)
-    .option("--speculos-automation-port <port>", "(requires --speculos) use the given port for automatically interacting with speculos screens", parseInt)
+    .option("--device <device>", "Device to use for signing")
+    .option("--wallet <wallet-id>", "Use a device with this wallet ID")
+    .option("--speculos <apdu-port>", "(for testing) Use the Ledger Speculos transport instead of connecting via USB and connect over the given port to communicate APDUs; overrides --device", parseInt)
+    .option("--speculos-button-port <port>", "(requires --speculos) Use the given port for automatically interacting with speculos buttons", parseInt)
+    .option("--speculos-automation-port <port>", "(requires --speculos) Use the given port for automatically interacting with speculos screens", parseInt)
   ;
 }
 
 commander.Command.prototype.add_network_option = function() {
-  return this.requiredOption("--network <network>", "network name [avax, fuji, local]", "avax");
+  return this.requiredOption("--network <network>", "Network name [avax, fuji, local]", "avax");
 }
 
 // Convenience function to add the --node option
 commander.Command.prototype.add_node_option = function() {
   return this
-    .requiredOption("-n, --node <uri>", "node to use (avax mainnet defaults to 'https://api.avax.network', fuji defaults to 'https://api.avax-test.network', local defaults to 'http://localhost:9650')", "network-default-node")
+    .requiredOption("-n, --node <uri>", "Node to use (avax mainnet defaults to 'https://api.avax.network', fuji defaults to 'https://api.avax-test.network', local defaults to 'http://localhost:9650')", "network-default-node")
     .add_network_option();
 }
 
@@ -219,7 +219,7 @@ program
 
 program
   .command("get-address <path>")
-  .description("get the address of a derivation path. <path> should be 'change/address_index'")
+  .description("Get the address of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .add_node_option()
   .add_chain_option()
@@ -242,7 +242,7 @@ program
 
 program
   .command("get-extended-public-key [path]")
-  .description("get the extended public key of a derivation path. <path> should be 'change/address_index'")
+  .description("Get the extended public key of a derivation path. <path> should be 'change/address_index'")
   .add_device_option()
   .action(async (path, options) => {
     return await withLedger(options, async ledger => {

@@ -2,13 +2,13 @@
 let
   coreth = import ./coreth.nix {};
 in pkgs.buildGoModule {
-  name = "gecko";
-  src = pkgs.fetchThunk ./dep/gecko;
+  name = "avalanchego";
+  src = pkgs.fetchThunk ./dep/avalanchego;
   # Note, if the package's go.mod file changes, change this to pkgs.lib.fakeSha256
   # or else nix will automatically use the derivation for the matching hash and
   # go mod will complain about you missing packages (when instead, it should be complaining
   # about the wrong hash
-  modSha256 = "08nfy9zpkkh3j9arrrndlkhnwaqvfgv02kdgnvp3qzaw7898qbsq";
+  modSha256 = "1ipvxq8yg4lwmylq9fz19883z0z7yxi1m76x3smbhz528v1m0qj8";
   doCheck = false;
   buildPhase = ''
     mkdir -p $out
@@ -20,4 +20,3 @@ in pkgs.buildGoModule {
   '';
   dontInstall = true;
 }
-

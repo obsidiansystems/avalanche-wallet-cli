@@ -68,7 +68,7 @@ BUTTON_PORT=8888
 AUTOMATION_PORT=8899
 APDU_PORT=9999
 
-NODE_PREFIX="$GECKO --plugin-dir=$PLUGINS/"
+NODE_PREFIX="$AVALANCHEGO --plugin-dir=$PLUGINS/"
 NODE_SHARED="--assertions-enabled=true --tx-fee=1000000 --public-ip=127.0.0.1 --network-id=local --xput-server-enabled=false --signature-verification-enabled=true --api-admin-enabled=true --api-ipcs-enabled=false --api-keystore-enabled=true --api-metrics-enabled=true --http-tls-enabled=false --db-enabled=false --log-level=debug --snow-avalanche-batch-size=31 --snow-avalanche-num-parents=5 --snow-sample-size=2 --snow-quorum-size=2 --snow-virtuous-commit-threshold=5 --snow-rogue-commit-threshold=10 --p2p-tls-enabled=true --staking-enabled=false"
 
 export NODE_HTTP_PORT=9652

@@ -1,6 +1,6 @@
 { pkgs
 , cli-app-avalanche
-, gecko
+, avalanchego
 , speculos
 , appElf ? null
 }:
@@ -10,8 +10,8 @@ let
   testScriptText = ''
     #!${pkgs.bash}/bin/bash
     export PATH=${pkgs.jq}/bin:${pkgs.curl}/bin:$PATH
-    export GECKO='${gecko}/bin/avalanche'
-    export PLUGINS='${gecko}/plugins'
+    export AVALANCHEGO='${avalanchego}/bin/avalanche'
+    export PLUGINS='${avalanchego}/plugins'
     export CERTS='${test-certs-dir}'
     export SPECULOS='${speculos}/bin/speculos'
     export CLI='${cli-app-avalanche}/bin/avalanche-ledger-cli'

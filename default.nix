@@ -56,14 +56,14 @@ let
     };
   };
 
-  gecko = import ./nix/avalanche.nix { inherit pkgs; };
+  avalanchego = import ./nix/avalanche.nix { inherit pkgs; };
   tests = import ./tests {
-    inherit pkgs appElf cli-app-avalanche gecko;
+    inherit pkgs appElf cli-app-avalanche avalanchego;
     speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
   };
 
 in {
-  inherit cli-app-avalanche gecko snapPackage;
+  inherit cli-app-avalanche avalanchego snapPackage;
   tests-full = tests;
   tests = tests.test-run;
 }

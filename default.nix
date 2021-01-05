@@ -59,6 +59,7 @@ let
     };
   };
 
+  avash = import ./nix/avash.nix { inherit pkgs; };
   gecko = import ./nix/avalanche.nix { inherit pkgs; };
   tests = import ./tests {
     inherit pkgs appElf cli-app-avalanche gecko;
@@ -66,7 +67,7 @@ let
   };
 
   shell = pkgs.mkShell {
-    buildInputs = [nodejs] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn ]);
+    buildInputs = [ avash gecko nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn ]);
   };
 
 in {

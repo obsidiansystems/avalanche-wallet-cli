@@ -20,13 +20,15 @@ getBalancePChain(){
 
 atomicSwapExport(){
   amount=$1
-  toAccount=$2
-  $CLI export --amount "$amount" --to $toAccount $CLI_ARGS $NODE_ARGS
+  chain=$2
+  toAccount=$3
+  $CLI export --amount "$amount" --chain $chain --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
 atomicSwapImport(){
-  toAccount=$1
-  $CLI import --to $toAccount $CLI_ARGS $NODE_ARGS
+  chain=$1
+  toAccount=$2
+  $CLI import --chain $chain --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
 # bats will run each test multiple times, so to get around this (for the time being) we
@@ -44,33 +46,33 @@ atomicSwapImport(){
 
   [[ "$(getBalancePChain)" == "0 nAVAX" ]]
 
-  atomicSwapExport "4000000 nAVAX" $P_CHAIN_ADDRESS
+  atomicSwapExport "4000000 nAVAX" "X" $P_CHAIN_ADDRESS
   sleep 8
 
   [[ "$(getBalanceXChain)" == "5000000 nAVAX" ]]
 
   [[ "$(getBalancePChain)" == "0 nAVAX" ]]
 
-  atomicSwapImport $P_CHAIN_ADDRESS
+  atomicSwapImport "X" $P_CHAIN_ADDRESS
   sleep 8
 
   [[ "$(getBalancePChain)" == "3000000 nAVAX" ]]
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
 
-  atomicSwapExport "2000000 nAVAX" $X_CHAIN_ADDRESS
+  atomicSwapExport "2000000 nAVAX" "P" $X_CHAIN_ADDRESS
   sleep 8
 
   [[ "$(getBalancePChain)" == "0 nAVAX" ]]
 
-  atomicSwapImport $X_CHAIN_ADDRESS
+  atomicSwapImport "P" $X_CHAIN_ADDRESS
   sleep 8
 
   [[ "$(getBalanceXChain)" == "6000000 nAVAX" ]]
 
   # Set the balance to zero for other tests
 
-  atomicSwapExport "5000000 nAVAX" $P_CHAIN_ADDRESS
+  atomicSwapExport "5000000 nAVAX" "X" $P_CHAIN_ADDRESS
   sleep 8
 
   [[ "$(getBalanceXChain)" == "0 nAVAX" ]]

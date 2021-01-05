@@ -92,15 +92,6 @@ function make_chain_objects(ava, alias) {
   }
 }
 
-// Convert chain alias to their counterpart, i.e. X -> P, P -> X
-function swap_chain_alias(alias) {
-  switch (alias) {
-    case AvaJS.utils.XChainAlias: return AvaJS.utils.PChainAlias;
-    case AvaJS.utils.PChainAlias: return AvaJS.utils.XChainAlias;
-    default: log_error_and_exit("Unsupported chain alias");
-  }
-}
-
 async function get_transport_with_wallet(devices, open, chosen_device, wallet_id) {
   let found_device = null;
   // If the user doesn't specify a wallet, just use the given device.
@@ -700,6 +691,7 @@ program
   .description("Export AVAX to another chain")
   .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
+  .add_chain_option()
   .add_node_option()
   .add_device_option()
   .action(async options => {
@@ -708,7 +700,7 @@ program
     const destination_chain_alias = toAddress.split("-")[0]
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
     const destination_chain_id = destination_chain_objects.api.getBlockchainID();
-    const source_chain_alias = swap_chain_alias(destination_chain_alias);
+    const source_chain_alias = options.chain;
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
     const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
@@ -749,6 +741,7 @@ program
   .command("import")
   .description("Import AVAX from a different chain")
   .requiredOption("--to <account>", "Recipient account")
+  .add_chain_option()
   .add_node_option()
   .add_device_option()
   .action(async options => {
@@ -759,15 +752,16 @@ program
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
       signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTxImport : sign_UnsignedTxImport
-      
-      switch (destination_chain_alias) {
-        case AvaJS.utils.XChainAlias:
+
+      switch (options.chain) {
+        case AvaJS.utils.PChainAlias:
           source_chain_id = AvaJS.utils.PlatformChainID;
           break;
-        case AvaJS.utils.PChainAlias:
+        case AvaJS.utils.XChainAlias:
           source_chain_id = ava.XChain().getBlockchainID();
           break;
       }
+
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
       console.error("Discovering addresses...");
@@ -892,7 +886,7 @@ program
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
       const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
-      
+
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 

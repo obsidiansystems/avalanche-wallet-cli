@@ -9,7 +9,7 @@ let
 
   testScriptText = ''
     #!${pkgs.bash}/bin/bash
-    export PATH=${pkgs.jq}/bin:${pkgs.curl}/bin:$PATH
+    export PATH=${pkgs.jq}/bin:${pkgs.curl}/bin:${pkgs.ncurses}/bin:$PATH
     export GECKO='${gecko}/bin/avalanche'
     export PLUGINS='${gecko}/plugins'
     export CERTS='${test-certs-dir}'

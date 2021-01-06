@@ -66,7 +66,9 @@ function get_network_node(options) {
 
 commander.Command.prototype.add_chain_option = function() {
   return this
-    .option("--chain <chain>", "chain [" + AvaJS.utils.XChainAlias + ", " + AvaJS.utils.PChainAlias + "]", AvaJS.utils.XChainAlias);
+    .option("--chain <chain>"
+            , "chain [" + AvaJS.utils.XChainAlias + ", " + AvaJS.utils.PChainAlias + ", " + AvaJS.utils.CChainAlias + "]"
+            , AvaJS.utils.XChainAlias);
 }
 
 function get_network_id_from_hrp(hrp) {

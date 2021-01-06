@@ -1460,10 +1460,10 @@ auto-bind@^4.0.0:
   resolved "https://registry.yarnpkg.com/auto-bind/-/auto-bind-4.0.0.tgz#e3589fc6c2da8f7ca43ba9f84fa52a744fc997fb"
   integrity sha512-Hdw8qdNiqdJ8LqT0iK0sVzkFbzg6fhnQqqfWhBDxcHZvU75+B+ayzTy8x+k5Ix0Y92XOhOUlx74ps+bA6BeYMQ==
 
-avalanche@^3.0.0:
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/avalanche/-/avalanche-3.0.0.tgz#a2785f160b518ecb25bf5581b075ca9ced8a9b59"
-  integrity sha512-jbM9c3fpgBLa4K4WAd+N2CCXyr1FZsWZA7cxWQdHRzsWpYtj3cN2fpJtYj0gHEwuFoVJPMMz1rJeMgRP6DApLw==
+avalanche@^3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/avalanche/-/avalanche-3.1.0.tgz#e13b5b5a069192be8d6ff8fe576f05afb6bebea9"
+  integrity sha512-WgGWBOfqCWAaBuTeiMbpmNk2Gn6EoI2oWreRSJQT5DfUcwh+YvVxpXr/IXP56l9mp2LH99G3myoz4yt0R5VxvA==
   dependencies:
     axios "0.19.2"
     bech32 "1.1.4"

@@ -87,6 +87,8 @@ function make_chain_objects(ava, alias) {
       return ({ "vm": AvaJS.avm, "api": ava.XChain(), "alias" : AvaJS.utils.XChainAlias });
     case AvaJS.utils.PChainAlias:
       return ({ "vm": AvaJS.platformvm, "api": ava.PChain(), "alias" : AvaJS.utils.PChainAlias });
+    case AvaJS.utils.CChainAlias:
+      return ({ "vm": AvaJS.evm, "api": ava.CChain(), "alias" : AvaJS.utils.CChainAlias });
     default:
       log_error_and_exit("Unsupported chain alias");
   }

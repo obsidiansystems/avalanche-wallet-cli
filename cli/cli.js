@@ -96,6 +96,37 @@ function make_chain_objects(ava, alias) {
   }
 }
 
+// avalanchego produces addresses with the following properties
+// - for platform addresses, prefix is P-, a bech32 encoded payload (with hrp of "local" or whatever for the chain id)
+// - for exchange addresse, prefix is X-, and bech32 as above
+// - for contract addresses, a prefix of 0x with hex encoded payload, with case mixed checksum.
+// we need to make sure we understand all of the above cases, since those will
+// most likely be used by regular users.  This is also the format used in
+// existing web based block explorers
+// we'll also accept a handful of other cases; C-[bech32] for contract addresses, and bare [bech32] for exchange addresses (with no prefix)
+// this function returns an object with the right api to operate on the given address (as in make_chain_objects),
+function parseAddress (addrString) {
+
+    const make_make_chain_objects = (alias => (ava => make_chain_objects(ava, alias)));
+
+    // 40 hex symbols (20 bytes)
+    hexStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>0x[0-9a-fA-F]{40})$/);
+
+    // 1 symbol minimum of hrp + 1 symbol separator + 32 symbols (20 bytes) of address + 6 symbols of checksum;
+    bechStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>[\x21-\x7e]{40,90})$/);
+
+    // there is an ambiguity; an hrp of "0x0" would have the right shape to be
+    // recognized as an address in both encodings.  we presume that hrp would
+    // not be used, and always parse as hex.
+    if (hexStyle !== null) {
+        const alias = hexStyle.groups.alias || "C";
+        return make_make_chain_objects(alias);
+    } else if (bechStyle !== null) {
+        const alias = hexStyle.groups.alias || "X";
+        return make_make_chain_objects(alias);
+    }
+}
+
 async function get_transport_with_wallet(devices, open, chosen_device, wallet_id) {
   let found_device = null;
   // If the user doesn't specify a wallet, just use the given device.
@@ -333,7 +364,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
     }
 
     // Get UTXOs for this batch
-    batch.utxoset = await (await chain_objects.api.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses))).utxos;
+    batch.utxoset = await (await chain_objects.api.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses), chain_objects.alias)).utxos;
 
     // Run the batch function
     batched_function(batch);
@@ -404,8 +435,8 @@ program
   .add_chain_option()
   .action(async (address, options) => {
     const ava = ava_js_from_options(options);
-    const chain_objects = make_chain_objects(ava, options.chain);
     if (address === undefined) {
+      const chain_objects = make_chain_objects(ava, options.chain);
       await withLedger(options, async ledger => {
 
         if (automationEnabled(options)) flowAccept(ledger.transport);
@@ -414,22 +445,13 @@ program
         console.log(balance.toString() + " nAVAX");
       });
     } else {
-      var result;
-      switch (address.split("-")[0]) {
-        case AvaJS.utils.XChainAlias:
-          result = (await ava.XChain().getBalance(address,
-            BinTools.cb58Encode(await ava.XChain().getAVAXAssetID())
-          )).balance;
-          break;
-        case AvaJS.utils.PChainAlias:
-          result = (await ava.PChain().getBalance(address,
-            BinTools.cb58Encode(await ava.PChain().getAVAXAssetID())
-          )).balance;
-          break;
-        default:
-          console.error("Unrecognised address format");
-          return;
-      }
+      const chain_objects = parseAddress(address)(ava);
+
+      var result
+        = (await chain_objects.api.getBalance(address,
+            BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
+            )).balance;
+
       console.log(result.toString(10, 0) + " nAVAX");
     }
 });
@@ -753,18 +775,12 @@ program
     const toAddress = options.to;
     const destination_chain_alias = toAddress.split("-")[0];
     const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
+    const source_chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
       signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTxImport : sign_UnsignedTxImport
 
-      switch (options.chain) {
-        case AvaJS.utils.PChainAlias:
-          source_chain_id = AvaJS.utils.PlatformChainID;
-          break;
-        case AvaJS.utils.XChainAlias:
-          source_chain_id = ava.XChain().getBlockchainID();
-          break;
-      }
+      source_chain_id = source_chain_objects.api.getBlockchainID();
 
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);

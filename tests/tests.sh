@@ -3,7 +3,7 @@
 set -euo pipefail
 
 setupFaucet() {
-  curl -X POST --data '{
+  curl -s -X POST --data '{
       "jsonrpc":"2.0",
       "id"     :1,
       "method" :"keystore.createUser",
@@ -13,7 +13,7 @@ setupFaucet() {
         }
   }' -H 'content-type:application/json;' 127.0.0.1:${NODE_HTTP_PORT}/ext/keystore &&
 
-  curl --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
+  curl -s --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
     --header 'Content-Type: application/json' \
     --data-raw '{
         "jsonrpc": "2.0",
@@ -28,7 +28,7 @@ setupFaucet() {
 }
 
 setupFakeUser() {
-  curl -X POST --data '{
+  curl -s -X POST --data '{
       "jsonrpc":"2.0",
       "id"     :1,
       "method" :"keystore.createUser",
@@ -38,7 +38,7 @@ setupFakeUser() {
         }
   }' -H 'content-type:application/json;' 127.0.0.1:${NODE_HTTP_PORT}/ext/keystore &&
 
-  curl --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
+  curl -s --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
     --header 'Content-Type: application/json' \
     --data-raw '{
         "jsonrpc": "2.0",

@@ -10,12 +10,20 @@ getNewReceiveAddressPChain(){
   $CLI get-new-receive-address --chain P $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
+getNewReceiveAddressCChain(){
+  $CLI get-new-receive-address --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
+}
+
 getBalanceXChain(){
   $CLI get-balance $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getBalancePChain(){
   $CLI get-balance --chain P $CLI_ARGS $NODE_ARGS | tail -n 1
+}
+
+getBalanceCChain(){
+  $CLI get-balance --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 atomicSwapExport(){
@@ -76,5 +84,7 @@ atomicSwapImport(){
   sleep 8
 
   [[ "$(getBalanceXChain)" == "0 nAVAX" ]]
+
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
 
 }

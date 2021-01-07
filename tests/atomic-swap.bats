@@ -88,3 +88,51 @@ atomicSwapImport(){
   [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
 
 }
+
+@test "Ledger app scenario 2" {
+  [[ "$(getBalanceXChain)" == "0 nAVAX" ]]
+
+  setupLedgerFromFaucet
+
+  [[ "$(getBalanceXChain)" == "10000000 nAVAX" ]]
+
+  echo "Starting Atomic Swap Tests"
+
+  C_CHAIN_ADDRESS=$(getNewReceiveAddressCChain)
+
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
+
+  atomicSwapExport "4000000 nAVAX" "X" $C_CHAIN_ADDRESS
+  sleep 8
+
+  [[ "$(getBalanceXChain)" == "5000000 nAVAX" ]]
+
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
+
+  atomicSwapImport "X" $C_CHAIN_ADDRESS
+  sleep 8
+
+  [[ "$(getBalanceCChain)" == "3000000 nAVAX" ]]
+
+  X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
+
+  atomicSwapExport "2000000 nAVAX" "C" $X_CHAIN_ADDRESS
+  sleep 8
+
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
+
+  atomicSwapImport "C" $X_CHAIN_ADDRESS
+  sleep 8
+
+  [[ "$(getBalanceXChain)" == "6000000 nAVAX" ]]
+
+  # Set the balance to zero for other tests
+
+  atomicSwapExport "5000000 nAVAX" "X" $C_CHAIN_ADDRESS
+  sleep 8
+
+  [[ "$(getBalanceXChain)" == "0 nAVAX" ]]
+
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
+
+}

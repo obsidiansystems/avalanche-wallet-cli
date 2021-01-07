@@ -110,10 +110,10 @@ function parseAddress (addrString) {
     const make_make_chain_objects = (alias => (ava => make_chain_objects(ava, alias)));
 
     // 40 hex symbols (20 bytes)
-    hexStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>0x[0-9a-fA-F]{40})$/);
+    const hexStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>0x[0-9a-fA-F]{40})$/);
 
     // 1 symbol minimum of hrp + 1 symbol separator + 32 symbols (20 bytes) of address + 6 symbols of checksum;
-    bechStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>[\x21-\x7e]{40,90})$/);
+    const bechStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>[\x21-\x7e]{40,90})$/);
 
     // there is an ambiguity; an hrp of "0x0" would have the right shape to be
     // recognized as an address in both encodings.  we presume that hrp would
@@ -658,6 +658,25 @@ function parseVersion(str) {
   }
 }
 
+function compareVersions(a, b) {
+    switch (Math.sign(a.major - b.major)) {
+        case -1: return -1;
+        case 1: return 1;
+        default: switch (Math.sign(a.minor - b.minor)) {
+            case -1: return -1;
+            case 1: return 1;
+            default: return Math.sign(a.patch - b.patch);
+        }
+    }
+}
+
+function minVersion(a, b) {
+    return compareVersions(a, b) < 0 ? a : b;
+}
+function maxVersion(a, b) {
+    return compareVersions(a, b) >= 0 ? a : b;
+}
+
 async function getParsedVersion(ledger, version) {
   const appDetails = await ledger.getAppConfiguration();
   return parseVersion(appDetails.version);
@@ -712,6 +731,37 @@ program
     });
 });
 
+// the minimum version that sign_UnsignedTx may be used for the given network/operation
+const minVersionForUnhashedSign =
+    { "X": {
+        "export": parseVersion("0.3.0"),
+        "import": parseVersion("0.3.0")
+    }
+    , "P": {
+        "export": parseVersion("0.3.0"),
+        "import": parseVersion("0.3.0")
+    }
+    , "C": {
+        "export": parseVersion("0.4.0"),
+        "import": parseVersion("0.4.0")
+    }
+    }
+
+
+function getHashFunctionForOperations(version, ops) {
+    var minRequiredVersion = parseVersion("0.0.0");
+
+    for (var i = 0; i < ops.length; ++i) {
+        const opVersion = minVersionForUnhashedSign[ops[i][0]][ops[i][1]];
+        if (opVersion === undefined) {
+            throw ("bad op:" + ops[i]);
+        }
+        minRequiredVersion = maxVersion(minRequiredVersion, opVersion);
+    }
+    // TODO: warn the user when they should update
+    return ((compareVersions(minRequiredVersion, version) > 0) ? signHash_UnsignedTx : sign_UnsignedTx) ;
+}
+
 program
   .command("export")
   .description("Export AVAX to another chain")
@@ -731,7 +781,8 @@ program
     const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
-      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
+      signFunction = getHashFunctionForOperations(version, [[destination_chain_alias, "export"]]);
+
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
 
@@ -778,7 +829,7 @@ program
     const source_chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
-      signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTxImport : sign_UnsignedTxImport
+      signFunction = getHashFunctionForOperations(version, [[destination_chain_objects.alias, "import"]]);
 
       source_chain_id = source_chain_objects.api.getBlockchainID();
 
@@ -790,14 +841,23 @@ program
       const fromAddresses = [];
       const changeAddresses = [];
       console.error("Building TX...");
-      const unsignedImportTx = await destination_chain_objects.api.buildImportTx(
-        prepared.utxoset,
-        [toAddress],
-        source_chain_id,
-        [toAddress],
-        fromAddresses,
-        changeAddresses
-      );
+
+      const unsignedImportTx = await ((destination_chain_objects.alias == "C") // It seems like the evm api wants to have its arguments in a different order.
+            ? destination_chain_objects.api.buildImportTx(
+                prepared.utxoset,
+                toAddress,
+                [toAddress],
+                source_chain_id,
+                fromAddresses,
+              )
+            : destination_chain_objects.api.buildImportTx(
+                prepared.utxoset,
+                [toAddress],
+                source_chain_id,
+                [toAddress],
+                fromAddresses,
+                changeAddresses
+              ));
       console.error("Unsigned Import TX:");
       console.error(unsignedImportTx.toBuffer().toString("hex"));
       const signedTx = await signFunction(ava, destination_chain_objects, unsignedImportTx, prepared.addr_to_path, null, ledger, options);

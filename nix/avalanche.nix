@@ -8,7 +8,7 @@ in pkgs.buildGoModule {
   # or else nix will automatically use the derivation for the matching hash and
   # go mod will complain about you missing packages (when instead, it should be complaining
   # about the wrong hash
-  vendorSha256 = "sha256:0sx019m0x5nydqlmxhy4388c2brhgd6jvibs99ahdsy4r7351a8v";
+  vendorSha256 = "sha256:0k7zhk4r9c0iy6pxfp3sjanpyaxv521cjs0jjqbbsfcdibyhsdjf";
   runVend = true;
   doCheck = false;
   buildPhase = ''
@@ -20,4 +20,3 @@ in pkgs.buildGoModule {
   '';
   dontInstall = true;
 }
-

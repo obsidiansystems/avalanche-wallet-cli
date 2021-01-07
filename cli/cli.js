@@ -748,7 +748,7 @@ const minVersionForUnhashedSign =
     }
 
 
-function getHashFunctionForOperations(version, ops) {
+function getSupportsUnhashedSigningForVersion(version, ops) {
     var minRequiredVersion = parseVersion("0.0.0");
 
     for (var i = 0; i < ops.length; ++i) {
@@ -759,7 +759,7 @@ function getHashFunctionForOperations(version, ops) {
         minRequiredVersion = maxVersion(minRequiredVersion, opVersion);
     }
     // TODO: warn the user when they should update
-    return ((compareVersions(minRequiredVersion, version) > 0) ? signHash_UnsignedTx : sign_UnsignedTx) ;
+    return ((compareVersions(minRequiredVersion, version) <= 0)) ;
 }
 
 program
@@ -781,7 +781,7 @@ program
     const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
-      signFunction = getHashFunctionForOperations(version, [[destination_chain_alias, "export"]]);
+      signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_alias, "export"]]) ? sign_UnsignedTx : signHash_UnsignedTx;
 
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
@@ -829,7 +829,7 @@ program
     const source_chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
-      signFunction = getHashFunctionForOperations(version, [[destination_chain_objects.alias, "import"]]);
+      signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_objects.alias, "import"]]) ? sign_UnsignedTxImport : signHash_UnsignedTxImport;
 
       source_chain_id = source_chain_objects.api.getBlockchainID();
 

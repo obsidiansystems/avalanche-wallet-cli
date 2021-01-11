@@ -12,7 +12,26 @@ const commander = require("commander");
 const AvaJS = require("avalanche");
 const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
 const TransportSpeculos = require("@ledgerhq/hw-transport-node-speculos").default;
-const Ledger = require("@obsidiansystems/hw-app-avalanche").default;
+const HwAppAvalanche = require("@obsidiansystems/hw-app-avalanche").default;
+const HwAppEth = require("@ledgerhq/hw-app-eth").default;
+
+const axios = require("axios");
+
+axios.interceptors.response.use(
+  function (response) {
+    if (response.data.error !== undefined) {
+      console.error("axios response intercept: " + JSON.stringify( {
+      data: response.data,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      config: response.config}
+      ));
+    }
+    return response;
+  }, function (error) {
+    return Promise.reject(error);
+  });
 
 const BinTools = AvaJS.BinTools.getInstance();
 const bech32 = require('bech32');
@@ -145,7 +164,7 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
       const transport = await open(device);
       if (transport === undefined) continue;
       try {
-        const ledger = new Ledger(transport, logger=console.error);
+        const ledger = new HwAppAvalanche(transport, logger=console.error);
         const device_wallet_id = await ledger.getWalletId().catch(_ => console.error("[Skipped: Couldn't get wallet ID]"));
         if (device_wallet_id == undefined) continue;
         const device_wallet_id_hex = device_wallet_id.toString('hex');
@@ -259,10 +278,16 @@ program
       console.error("Getting public key for path", path);
       requestLedgerAccept();
 
-      if (automationEnabled(options)) flowAccept(ledger.transport);
-      const pubk_hash = await ledger.getWalletAddress(path, options.network);
+      if (automationEnabled(options)) flowAccept(avalanche.transport);
 
-      console.log(pkh_to_some_address(ava, chain_objects.alias, pubk_hash));
+      if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+        const pkh = await evm.getAddress(path);
+        console.log("C-" + pkh.address);
+      }
+      else {
+        const pubk_hash = await avalanche.getWalletAddress(path, options.network);
+        console.log(pkh_to_some_address(ava, chain_objects.alias, pubk_hash));
+      }
     });
 });
 

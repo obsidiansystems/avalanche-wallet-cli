@@ -11,7 +11,8 @@ getNewReceiveAddressPChain(){
 }
 
 getNewReceiveAddressCChain(){
-  $CLI get-new-receive-address --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
+  # $CLI get-new-receive-address --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-address --chain C "0/0" $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getBalanceXChain(){

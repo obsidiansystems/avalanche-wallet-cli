@@ -212,7 +212,7 @@ async function makeWithTransport(options) {
 async function withLedger(options, f) {
   const withTransport = await makeWithTransport(options);
   return await withTransport(async transport => {
-    return await f(new Ledger(transport, logger=console.error));
+    return await f(new HwAppAvalanche(transport, logger=console.error), new HwAppEth(transport));
   });
 }
 
@@ -272,7 +272,7 @@ program
     get_network_id_from_hrp(options.network); // validate the network
     const ava = ava_js_from_options(options);
     const chain_objects = make_chain_objects(ava, options.chain);
-    return await withLedger(options, async ledger => {
+    return await withLedger(options, async (avalanche, evm) => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
       path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting public key for path", path);

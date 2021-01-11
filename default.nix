@@ -10,13 +10,16 @@ let
   };
   inherit (import gitignoreSrc { inherit (pkgs) lib; }) gitignoreSource;
 
+  # For compatibility with https://github.com/ava-labs/avalanchejs/blob/70413e86dbad0ff122d2e00e403d667d3ba8a22d/package.json#L64
+  nodejs = pkgs.nodejs-12_x;
+
   node-gyp-build = ''
     PATH=${pkgs.python2}/bin:$PATH
     if [ -d node_modules/usb/ ]; then
-      (cd node_modules/usb/ && node-gyp rebuild --nodedir=${pkgs.lib.getDev pkgs.nodejs}/include/node)
+      (cd node_modules/usb/ && node-gyp rebuild --nodedir=${pkgs.lib.getDev nodejs}/include/node)
     fi
     if [ -d node_modules/node-hid/ ]; then
-      (cd node_modules/node-hid/ && node-gyp rebuild --nodedir=${pkgs.lib.getDev pkgs.nodejs}/include/node)
+      (cd node_modules/node-hid/ && node-gyp rebuild --nodedir=${pkgs.lib.getDev nodejs}/include/node)
     fi
   '';
 
@@ -27,7 +30,7 @@ let
       # Is a workspace, so they all share the same yarn.lock
       yarnLock = ./yarn.lock;
       extraBuildInputs = with pkgs; [ nodePackages.node-gyp pkg-config python libusb1 libudev.dev];
-      NIX_CFLAGS_COMPILE = "-I${pkgs.nodejs}/include/node -I${pkgs.lib.getDev pkgs.libusb1}/include/libusb-1.0";
+      NIX_CFLAGS_COMPILE = "-I${nodejs}/include/node -I${pkgs.lib.getDev pkgs.libusb1}/include/libusb-1.0";
     };
 
   cli-app-avalanche = mkAvalancheWorkspace {
@@ -40,7 +43,7 @@ let
   snapPackage = makeSnap {
     meta = {
       name = "avalanche-cli";
-      apps = { 
+      apps = {
         "avalanche-cli" = {
           command = "usr/" + (pkgs.lib.removePrefix "/nix/" "${cli-app-avalanche}/bin/avalanche-ledger-cli");
           plugs = [ "network" ];
@@ -62,8 +65,12 @@ let
     speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
   };
 
+  shell = pkgs.mkShell {
+    buildInputs = [nodejs] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn ]);
+  };
+
 in {
-  inherit cli-app-avalanche gecko snapPackage;
+  inherit cli-app-avalanche gecko shell snapPackage;
   tests-full = tests;
   tests = tests.test-run;
 }

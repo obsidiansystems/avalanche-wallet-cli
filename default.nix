@@ -61,13 +61,35 @@ let
 
   avash = import ./nix/avash.nix { inherit pkgs; };
   gecko = import ./nix/avalanche.nix { inherit pkgs; };
-  tests = import ./tests {
-    inherit pkgs appElf cli-app-avalanche gecko;
-    speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
-  };
+  speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
 
-  shell = pkgs.mkShell {
-    buildInputs = [ avash gecko nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn ]);
+  tools = [ avash gecko nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn jq curl ncurses ]);
+
+  shell = pkgs.mkShell ({
+    buildInputs = tools;
+  } // tests.testsEnvironment);
+
+  tests = rec {
+    testsEnvironment = {
+      GECKO="${gecko}/bin/avalanche";
+      PLUGINS="${gecko}/plugins";
+      CERTS="${pkgs.copyPathToStore ./testnet/certs}";
+      SPECULOS="${speculos}/bin/speculos";
+      bats="${pkgs.bats}/bin/bats";
+      TESTS_DIR= "${pkgs.copyPathToStore ./tests}";
+      LEDGER_APP="${if appElf != null then appElf else ""}";
+    };
+
+    testScriptText = ''
+      #!${pkgs.bash}/bin/bash
+      export CLI='${cli-app-avalanche}/bin/avalanche-ledger-cli'
+      export FAUCET='${cli-app-avalanche}/bin/avalanche-ledger-faucet'
+    '' + builtins.readFile ./tests/tests.sh;
+
+    test-script = pkgs.writeScriptBin "test-script.sh" testScriptText;
+    test-run = pkgs.runCommand "test-run" ( { buildInputs = tools; } // testsEnvironment) ''
+      ${test-script}/bin/test-script.sh | tee $out
+    '';
   };
 
 in {

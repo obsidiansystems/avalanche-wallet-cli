@@ -14,6 +14,9 @@ const TransportNodeHid = require("@ledgerhq/hw-transport-node-hid").default;
 const TransportSpeculos = require("@ledgerhq/hw-transport-node-speculos").default;
 const HwAppAvalanche = require("@obsidiansystems/hw-app-avalanche").default;
 const HwAppEth = require("@ledgerhq/hw-app-eth").default;
+const EthereumjsCommon = require('@ethereumjs/common').default;
+const EthereumjsTx = require("@ethereumjs/tx").Transaction;
+const Web3 = require('web3');
 
 const axios = require("axios");
 
@@ -37,8 +40,14 @@ const BinTools = AvaJS.BinTools.getInstance();
 const bech32 = require('bech32');
 
 const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
+const ETH_BIP32_PREFIX = "m/44'/60'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
+
+
+// https://github.com/ava-labs/avalanche-docs/blob/4be62d012368fe77caec6afe9d963ed4cc1e6501/learn/platform-overview/transaction-fees.md
+const C_CHAIN_GAS_LIMIT = 1e9;
+const C_CHAIN_GAS_PRICE = 4.7e-7;
 
 // TODO replace this with something better
 function log_error_and_exit(err) {
@@ -80,7 +89,7 @@ const network_default_node = {
 };
 
 function get_network_node(options) {
-  return (options.node === "network-default-node" ? network_default_node[options.network] : options.node);
+  return URI(options.node === "network-default-node" ? network_default_node[options.network] : options.node);
 }
 
 commander.Command.prototype.add_chain_option = function() {
@@ -97,7 +106,7 @@ function get_network_id_from_hrp(hrp) {
 }
 
 function ava_js_from_options(options) {
-  const uri = URI(get_network_node(options));
+  const uri = get_network_node(options);
   const network_id = get_network_id_from_hrp(options.network);
   return new AvaJS.Avalanche(uri.hostname(), uri.port(), uri.protocol(), network_id);
 }
@@ -717,42 +726,86 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options);
     const toAddress = options.to;
-    const chain_objects = make_chain_objects(ava, toAddress.split("-")[0]);
-    if (chain_objects.alias !== AvaJS.utils.XChainAlias)
-      log_error_and_exit("Transfers are only possible on the " + AvaJS.utils.XChainAlias + " chain. If you are looking to transfer between chains, see `export`.")
+    const chain_objects = parseAddress(options.to)(ava);
+    const supportedChains = [AvaJS.utils.CChainAlias, AvaJS.utils.XChainAlias];
+    if (-1 == supportedChains.indexOf(chain_objects.alias))
+      log_error_and_exit("Transfers are only possible on chains "
+                         + supportedChains.join(" & ")
+                         + ". If you are looking to transfer between chains, see `export`.")
     const amount = parseAmountWithError(options.amount);
 
-    return await withLedger(options, async ledger => {
-      if (automationEnabled(options)) flowAccept(ledger.transport);
-      const version = await getParsedVersion(ledger);
-      const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
+    return await withLedger(options, async (avalanche, evm) => {
+      if (automationEnabled(options)) flowAccept(avalanche.transport);
 
-      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
-      console.error("Discovering addresses...");
-      const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
+      if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+          const txParams = {
+              to: toAddress.split("-")[1],
+              value: amount,
+              gas: C_CHAIN_GAS_LIMIT,
+              gasPrice: C_CHAIN_GAS_PRICE,
+          };
+          const unsignedTx = EthereumjsTx.fromTxData(txParams);
+          const unsignedTxHex = unsignedTx.serialize().toString('hex');
+          const signature = await evm.signTransaction(ETH_BIP32_PREFIX, unsignedTxHex);
+          const signatureBN = {
+              v: new BN(signature.v, 16),
+              r: new BN(signature.r, 16),
+              s: new BN(signature.s, 16),
+          };
 
-      const fromAddresses = prepared.addresses;
+          // https://github.com/ethereumjs/ethereumjs-vm/issues/705
+          // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
+          // EIP155 support. check/recalc signature v value.
+          const rv = parseInt(signatureBN.v, 16);
+          let cv = unsignedTx.getChainId() * 2 + 35;
+          if (rv !== cv && (rv & cv) !== rv) {
+              cv += 1; // add signature v bit.
+          }
+          const v = "0x" + cv.toString(16);
 
-      console.error("Getting new change address...");
-      // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-      const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+          const signedTx = EthereumjsTx.fromTxData({...txParams,...signatureBN, v});
+          const signedTxHex = signedTx.serialize().toString('hex');
+          const rpc = get_network_node(options).path('/ext/bc/C/rpc');
+          const web3 = new Web3(rpc);
 
-      console.error("Building TX...");
+          console.log(signatureBN);
+          console.log(v);
+          console.log(unsignedTxHex);
+          console.log(signedTxHex);
+          console.log(rpc.toString());
 
-      const unsignedTx = await chain_objects.api.buildBaseTx(
-        prepared.utxoset,
-        amount,
-        BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID()),
-        [toAddress],
-        fromAddresses,
-        [changeAddress]
-      );
-      console.error("Unsigned TX:");
-      console.error(unsignedTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, chain_objects, unsignedTx, prepared.addr_to_path, changeAddress, ledger, options);
-      console.error("Issuing TX...");
-      const txid = await chain_objects.api.issueTx(signedTx);
-      console.log(txid);
+          web3.eth.getAccounts(console.log);
+      } else {
+          const version = await getParsedVersion(avalanche);
+          const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
+
+          const root_key = await get_extended_public_key(avalanche, AVA_BIP32_PREFIX);
+          console.error("Discovering addresses...");
+          const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
+
+          const fromAddresses = prepared.addresses;
+
+          console.error("Getting new change address...");
+          // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+          const changeAddress = (await get_first_unused_address(ava, chain_objects, root_key)).change;
+
+          console.error("Building TX...");
+
+          const unsignedTx = await chain_objects.api.buildBaseTx(
+              prepared.utxoset,
+              amount,
+              BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID()),
+              [toAddress],
+              fromAddresses,
+              [changeAddress]
+          );
+          console.error("Unsigned TX:");
+          console.error(unsignedTx.toBuffer().toString("hex"));
+          const signedTx = await signFunction(ava, chain_objects, unsignedTx, prepared.addr_to_path, changeAddress, avalanche, options);
+          console.error("Issuing TX...");
+          const txid = await chain_objects.api.issueTx(signedTx);
+          console.log(txid);
+      }
     });
 });
 

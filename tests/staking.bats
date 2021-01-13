@@ -52,7 +52,7 @@ delegate() {
 
 # bats will run each test multiple times, so to get around this (for the time being) we
 # run everything in a single test case
-@test "Ledger app scenario 1" {
+@test "Staking" {
 
   setupLedgerFromFaucet
 

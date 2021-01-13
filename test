@@ -9,13 +9,7 @@ export FAUCET="$DIR/cli/faucet.js"
 
 TEST_DIR=$DIR/tests
 
-unsharedTest() {
-unshare --map-root-user --net --pid --fork <<EOF
-  ip link set dev lo up
-  $TEST_DIR/tests.sh $1
-EOF
-}
-
-unsharedTest "$TEST_DIR/atomic-swap.bats"
-unsharedTest "$TEST_DIR/basic-tests.bats"
-unsharedTest "$TEST_DIR/staking.bats"
+parallel --will-cite "$TEST_DIR/unshared.sh" ::: \
+  "$TEST_DIR/atomic-swap.bats" \
+  "$TEST_DIR/basic-tests.bats" \
+  "$TEST_DIR/staking.bats"

@@ -63,7 +63,7 @@ let
   gecko = import ./nix/avalanche.nix { inherit pkgs; };
   speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
 
-  tools = [ avash gecko nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn jq curl ncurses ]);
+  tools = [ avash gecko nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn jq curl ncurses parallel ]);
 
   shell = pkgs.mkShell ({
     buildInputs = tools;

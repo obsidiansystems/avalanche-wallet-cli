@@ -766,15 +766,15 @@ program
           const signedTx = EthereumjsTx.fromTxData({...txParams,...signatureBN, v});
           const signedTxHex = signedTx.serialize().toString('hex');
           const rpc = get_network_node(options).path('/ext/bc/C/rpc');
-          const web3 = new Web3(rpc);
+          const web3 = new Web3(rpc.toString());
 
           console.log(signatureBN);
           console.log(v);
           console.log(unsignedTxHex);
           console.log(signedTxHex);
-          console.log(rpc.toString());
 
-          web3.eth.getAccounts(console.log);
+          const x = await web3.eth.sendSignedTransaction('0x' + signedTxHex);
+          console.log(x);
       } else {
           const version = await getParsedVersion(avalanche);
           const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx

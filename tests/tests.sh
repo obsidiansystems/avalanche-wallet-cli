@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+TEST_CASE=$1
+
 setupFaucet() {
   curl -s -X POST --data '{
       "jsonrpc":"2.0",
@@ -121,9 +123,7 @@ sleep 6
 setupFaucet
 setupFakeUser
 
-"$bats" -p "$TESTS_DIR"/*.bats
+bats -p "$TEST_CASE"
 bats_result=$?
-
-# "$TESTS_DIR"/basic-tests.sh
 
 exit $bats_result

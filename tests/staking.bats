@@ -66,9 +66,7 @@ delegate() {
   atomicSwapImport $P_CHAIN_ADDRESS
   sleep 8
 
-  # [[ "$(getBalancePChain)" == "9999998000000 nAVAX" ]]
-  # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
-  [[ "$(getBalancePChain)" ==  "10000003000000 nAVAX" ]]
+  [[ "$(getBalancePChain)" == "9999998000000 nAVAX" ]]
 
   NODE_ID=$(getNodeID)
 

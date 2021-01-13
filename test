@@ -1,9 +1,21 @@
 #! /usr/bin/env nix-shell
 #! nix-shell default.nix -A shell -i bash
-export CLI="$PWD/cli/cli.js"
-export FAUCET="$PWD/cli/faucet.js"
+set -euo pipefail
 
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+export CLI="$DIR/cli/cli.js"
+export FAUCET="$DIR/cli/faucet.js"
+
+TEST_DIR=$DIR/tests
+
+unsharedTest() {
 unshare --map-root-user --net --pid --fork <<EOF
   ip link set dev lo up
-  $PWD/tests/tests.sh
+  $TEST_DIR/tests.sh $1
 EOF
+}
+
+unsharedTest "$TEST_DIR/atomic-swap.bats"
+unsharedTest "$TEST_DIR/basic-tests.bats"
+unsharedTest "$TEST_DIR/staking.bats"

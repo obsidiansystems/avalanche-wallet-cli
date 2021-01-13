@@ -2,4 +2,8 @@
 #! nix-shell default.nix -A shell -i bash
 export CLI="$PWD/cli/cli.js"
 export FAUCET="$PWD/cli/faucet.js"
-$PWD/tests/tests.sh
+
+unshare --map-root-user --net --pid --fork <<EOF
+  ip link set dev lo up
+  $PWD/tests/tests.sh
+EOF

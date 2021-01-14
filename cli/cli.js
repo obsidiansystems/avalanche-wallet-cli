@@ -18,6 +18,7 @@ const EthereumjsCommon = require('@ethereumjs/common').default;
 const EthereumjsTx = require("@ethereumjs/tx").Transaction;
 const Web3 = require('web3');
 const keccak256 = require('keccak256');
+const secp256k1 = require('secp256k1');
 
 const axios = require("axios");
 
@@ -313,10 +314,7 @@ program
       if (automationEnabled(options)) flowAccept(avalanche.transport);
 
       if (chain_objects.alias == AvaJS.utils.CChainAlias) {
-        const pkhRoot = await evm.getAddress(AVA_BIP32_PREFIX, true, true);
-        // const pkh = await evm.getAddress(path, true, true);
-        // console.error(["get-address", pkh]);
-        console.error(["get-address", pkhRoot]);
+        const pkh = await evm.getAddress(path, true, true);
         console.log("C-" + pkh.address);
       }
       else {
@@ -392,7 +390,7 @@ function hdkey_to_pkh(hdkey) {
   return (new AvaJS.common.SECP256k1KeyPair()).addressFromPublicKey(hdkey.publicKey);
 }
 function eth_key_to_pkh(hdkey) {
-  return keccak256(hdkey.publicKey);
+  return keccak256(Buffer.from(secp256k1.publicKeyConvert(hdkey.publicKey, false)).slice(1)).slice(0,20);
 }
 
 function pkh_to_some_address(ava, alias, pkh) {

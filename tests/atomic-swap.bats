@@ -99,20 +99,29 @@ atomicSwapImport(){
 
   echo "Starting Atomic Swap Tests"
 
+  echo "get address"
   C_CHAIN_ADDRESS=$(getNewReceiveAddressCChain)
 
+  echo "C_CHAIN_ADDRESS=${C_CHAIN_ADDRESS}"
+
+  echo "getBalanceCChain"
   [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
 
+  echo "atomicSwapExport"
   atomicSwapExport "4000000 nAVAX" "X" $C_CHAIN_ADDRESS
   sleep 8
 
+  echo "getBalanceXChain"
   [[ "$(getBalanceXChain)" == "5000000 nAVAX" ]]
 
+  echo "getBalanceCChain"
   [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
 
+  echo "atomicSwapImport"
   atomicSwapImport "X" $C_CHAIN_ADDRESS
   sleep 8
 
+  echo "getBalanceCChain"
   [[ "$(getBalanceCChain)" == "3000000 nAVAX" ]]
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)

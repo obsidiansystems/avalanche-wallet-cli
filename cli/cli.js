@@ -17,6 +17,7 @@ const HwAppEth = require("@ledgerhq/hw-app-eth").default;
 const EthereumjsCommon = require('@ethereumjs/common').default;
 const EthereumjsTx = require("@ethereumjs/tx").Transaction;
 const Web3 = require('web3');
+const keccak256 = require('keccak256');
 
 const axios = require("axios");
 
@@ -120,7 +121,7 @@ function make_chain_objects(ava, alias) {
     case AvaJS.utils.CChainAlias:
       return ({ "vm": AvaJS.evm, "api": ava.CChain(), "alias" : AvaJS.utils.CChainAlias });
     default:
-      log_error_and_exit("Unsupported chain alias");
+      log_error_and_exit("Unsupported chain alias: " + alias);
   }
 }
 
@@ -134,25 +135,47 @@ function make_chain_objects(ava, alias) {
 // we'll also accept a handful of other cases; C-[bech32] for contract addresses, and bare [bech32] for exchange addresses (with no prefix)
 // this function returns an object with the right api to operate on the given address (as in make_chain_objects),
 function parseAddress (addrString) {
+  const dash = addrString.indexOf("-");
+  var chainAlias, addrRest, addrHex, addrBytes, hrp;
+  if (dash == -1) {
+    addrRest = addrString;
 
-    const make_make_chain_objects = (alias => (ava => make_chain_objects(ava, alias)));
-
-    // 40 hex symbols (20 bytes)
-    const hexStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>0x[0-9a-fA-F]{40})$/);
-
-    // 1 symbol minimum of hrp + 1 symbol separator + 32 symbols (20 bytes) of address + 6 symbols of checksum;
-    const bechStyle = addrString.match(/^((?<alias>[PCX])-)?(?<address>[\x21-\x7e]{40,90})$/);
-
-    // there is an ambiguity; an hrp of "0x0" would have the right shape to be
-    // recognized as an address in both encodings.  we presume that hrp would
-    // not be used, and always parse as hex.
-    if (hexStyle !== null) {
-        const alias = hexStyle.groups.alias || "C";
-        return make_make_chain_objects(alias);
-    } else if (bechStyle !== null) {
-        const alias = hexStyle.groups.alias || "X";
-        return make_make_chain_objects(alias);
+    // we now proceed to guess the network id:
+    // if it looks like hex, guess C chain, otherwise parse as bech32 and look at the HRP
+    if (addrString.match(/^0x[0-9a-fA-F]{2}/) !== null) {
+      chainAlias = "C";
+      addrHex = addrRest;
+      addrBytes = Buffer.from(addrHex.slice(2), "hex");
+    } else {
+      throw ("invalid address: " + addrString);
     }
+  } else {
+    chainAlias = addrString.slice(0, dash);
+    addrRest = addrString.slice(dash + 1);
+    if (addrRest.match(/^0x[0-9a-fA-F]{2}/) !== null) {
+      addrHex = addrRest;
+      addrBytes = Buffer.from(addrHex.slice(2), "hex");
+    } else {
+      const b = bech32.decode(addrRest)
+      addrBytes = bech32.fromWords(b.words);
+      hrp = b.prefix;
+      addrHex = "0x" + Buffer.toString("hex");
+    }
+  }
+
+
+  return function (ava) {
+    const chain_objects = make_chain_objects(ava, chainAlias);
+    chain_objects.asEnteredByUser = addrString;
+    chain_objects.normalised = chainAlias + "-" + addrRest;
+    chain_objects.addrHex = addrHex;
+    chain_objects.addrBytes = addrBytes;
+    chain_objects.hrp = hrp !== undefined ? hrp : ava.getHRP();
+
+    chain_objects.addrBech32 = chainAlias + "-" + bech32.encode(chain_objects.hrp, bech32.toWords(addrBytes));
+
+    return chain_objects;
+  };
 }
 
 async function get_transport_with_wallet(devices, open, chosen_device, wallet_id) {
@@ -363,6 +386,9 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
 function hdkey_to_pkh(hdkey) {
   return (new AvaJS.common.SECP256k1KeyPair()).addressFromPublicKey(hdkey.publicKey);
 }
+function eth_key_to_pkh(hdkey) {
+  return keccak256(hdkey.publicKey);
+}
 
 function pkh_to_some_address(ava, alias, pkh) {
   return alias + "-" + bech32.encode(ava.hrp, bech32.toWords(pkh));
@@ -376,6 +402,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
   var index = 0;
   var all_unused = false;
+  const hashAddress = chain_objects.alias === "C" ? eth_key_to_pkh : hdkey_to_pkh;
   while (!all_unused || index < SCAN_SIZE) {
     const batch = {
       address_to_path: {}, // A dictionary from AVAX address to path (change/address)
@@ -385,8 +412,8 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
     for (var i = 0; i < INDEX_RANGE; i++) {
       const child = hdkey.deriveChild(0).deriveChild(index + i);
       const change_child = hdkey.deriveChild(1).deriveChild(index + i);
-      const pkh = hdkey_to_pkh(child);
-      const change_pkh = hdkey_to_pkh(change_child);
+      const pkh = hashAddress(child);
+      const change_pkh = hashAddress(change_child);
       batch.non_change.pkhs.push(pkh);
       batch.change.pkhs.push(change_pkh);
       const address = pkh_to_some_address(ava, chain_objects.alias, pkh);
@@ -413,6 +440,8 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
 async function sum_child_balances(ava, chain_objects, hdkey, log = false) {
   var balance = new BN(0);
 
+  console.error("getting balance:")
+
   await traverse_used_keys(ava, chain_objects, hdkey, async batch => {
     // Total the balance for all PKHs
     for (const [pkh, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
@@ -428,6 +457,7 @@ async function sum_child_balances(ava, chain_objects, hdkey, log = false) {
     };
   });
 
+  console.error("got balance:")
   return balance;
 }
 
@@ -736,6 +766,12 @@ program
 
     return await withLedger(options, async (avalanche, evm) => {
       if (automationEnabled(options)) flowAccept(avalanche.transport);
+      const version = await getParsedVersion(avalanche);
+      const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx;
+
+      const root_key = await get_extended_public_key(avalanche, AVA_BIP32_PREFIX);
+      console.error("Discovering addresses...");
+      const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
 
       if (chain_objects.alias == AvaJS.utils.CChainAlias) {
           const txParams = {
@@ -851,8 +887,8 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options);
     const toAddress = options.to;
-    const destination_chain_alias = toAddress.split("-")[0]
-    const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
+    const destination_chain_objects = parseAddress(toAddress)(ava);
+    const destination_chain_alias = destination_chain_objects.alias;
     const destination_chain_id = destination_chain_objects.api.getBlockchainID();
     const source_chain_alias = options.chain;
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
@@ -902,8 +938,9 @@ program
   .action(async options => {
     const ava = ava_js_from_options(options);
     const toAddress = options.to;
-    const destination_chain_alias = toAddress.split("-")[0];
-    const destination_chain_objects = make_chain_objects(ava, destination_chain_alias);
+    const destination_chain_objects = parseAddress(toAddress)(ava);
+    const destination_chain_alias = destination_chain_objects.alias;
+    // console.log(["toAddress:", destination_chain_objects]);
     const source_chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
@@ -919,12 +956,25 @@ program
       const fromAddresses = [];
       const changeAddresses = [];
       console.error("Building TX...");
+      console.error(["import utxos", prepared.utxoset]);
+      if (destination_chain_objects.alias == "C") {
+        console.error(
+           `ava.CChain().buildImportTx(
+                ${JSON.stringify(prepared.utxoset)},
+                ${JSON.stringify(destination_chain_objects.addrHex)},
+                ${JSON.stringify([destination_chain_objects.addrBech32])},
+                ${JSON.stringify(source_chain_id)},
+                ${JSON.stringify(fromAddresses)},
+              )`);
+      }
+
+      // const toAddressHex = bech32. toAddress.split("-")[1]
 
       const unsignedImportTx = await ((destination_chain_objects.alias == "C") // It seems like the evm api wants to have its arguments in a different order.
             ? destination_chain_objects.api.buildImportTx(
                 prepared.utxoset,
-                toAddress,
-                [toAddress],
+                destination_chain_objects.addrHex,
+                [destination_chain_objects.addrBech32],
                 source_chain_id,
                 fromAddresses,
               )

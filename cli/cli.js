@@ -23,7 +23,7 @@ const axios = require("axios");
 
 axios.interceptors.response.use(
   function (response) {
-    if (response.data.error !== undefined) {
+    if (process.env.RPCLOG === "always" || (response.data.error !== undefined && process.env.RPCLOG !== "never")) {
       console.error("axios response intercept: " + JSON.stringify( {
       data: response.data,
       status: response.status,
@@ -313,7 +313,10 @@ program
       if (automationEnabled(options)) flowAccept(avalanche.transport);
 
       if (chain_objects.alias == AvaJS.utils.CChainAlias) {
-        const pkh = await evm.getAddress(path);
+        const pkhRoot = await evm.getAddress(AVA_BIP32_PREFIX, true, true);
+        // const pkh = await evm.getAddress(path, true, true);
+        // console.error(["get-address", pkh]);
+        console.error(["get-address", pkhRoot]);
         console.log("C-" + pkh.address);
       }
       else {
@@ -339,6 +342,8 @@ program
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
+  console.error(["get_extended_public_key", deriv_path]);
+
   requestLedgerAccept();
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path);
   hdw = new HDKey();
@@ -391,7 +396,13 @@ function eth_key_to_pkh(hdkey) {
 }
 
 function pkh_to_some_address(ava, alias, pkh) {
-  return alias + "-" + bech32.encode(ava.hrp, bech32.toWords(pkh));
+  switch (alias) {
+    case "C":
+      // return alias + "-" + "0x" + pkh.slice(0,20).toString("hex");
+      return alias + "-" + bech32.encode(ava.hrp, bech32.toWords(pkh.slice(0,20)));
+    default:
+      return alias + "-" + bech32.encode(ava.hrp, bech32.toWords(pkh));
+  }
 }
 
 // Traverse children of a hdkey with the given function. Stops when at least
@@ -424,6 +435,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
       batch.address_to_path[change_address] = "1/" + (index + i);
     }
 
+    console.error([`traverse_used_keys@${chain_objects.alias}::batch`, hdkey, batch]);
     // Get UTXOs for this batch
     batch.utxoset = await (await chain_objects.api.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses), chain_objects.alias)).utxos;
 
@@ -438,6 +450,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
 // Given a hdkey (at the account level), sum the UTXO balances
 // under that key.
 async function sum_child_balances(ava, chain_objects, hdkey, log = false) {
+  console.error(`sum_child_balances(ava, {alias=${JSON.stringify(chain_objects.alias)}, ...}, ${JSON.stringify(hdkey)}, ${log})`);
   var balance = new BN(0);
 
   console.error("getting balance:")

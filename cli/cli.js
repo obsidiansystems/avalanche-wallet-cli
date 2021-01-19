@@ -16,6 +16,7 @@ const HwAppAvalanche = require("@obsidiansystems/hw-app-avalanche").default;
 const HwAppEth = require("@ledgerhq/hw-app-eth").default;
 const EthereumjsCommon = require('@ethereumjs/common').default;
 const EthereumjsTx = require("@ethereumjs/tx").Transaction;
+const {bnToRlp, rlp} = require("ethereumjs-util");
 const Web3 = require('web3');
 const keccak256 = require('keccak256');
 const secp256k1 = require('secp256k1');
@@ -49,7 +50,7 @@ const SCAN_SIZE = 70; // the total number of utxos to look at initially to calcu
 
 // https://github.com/ava-labs/avalanche-docs/blob/4be62d012368fe77caec6afe9d963ed4cc1e6501/learn/platform-overview/transaction-fees.md
 const C_CHAIN_GAS_LIMIT = 1e9;
-const C_CHAIN_GAS_PRICE = 4.7e-7;
+const C_CHAIN_GAS_PRICE = 4.7e-7 * 1e9 * 1e9 // 1 AVAX = 1e9 nAVAX, 1nAVAX ~ 1 Gwei, 1 Gwei = 1e9 Wei;
 
 // TODO replace this with something better
 function log_error_and_exit(err) {
@@ -757,6 +758,34 @@ async function getParsedVersion(ledger, version) {
   return parseVersion(appDetails.version);
 }
 
+async function makeLedgerSignedTxEVM(ledgerEvm, options, path, txParams, chainId, networkId) {
+  const chainParams = { common: EthereumjsCommon.forCustomChain('mainnet', { networkId, chainId },'istanbul')};
+  const unsignedTx = EthereumjsTx.fromTxData(txParams, chainParams);
+
+  //TODO: fix upstream serialize for EIP155
+  const rawUnsignedTx = rlp.encode([
+      bnToRlp(unsignedTx.nonce),
+      bnToRlp(unsignedTx.gasPrice),
+      bnToRlp(unsignedTx.gasLimit),
+      unsignedTx.to !== undefined ? unsignedTx.to.buf : Buffer.from([]),
+      bnToRlp(unsignedTx.value),
+      unsignedTx.data,
+      bnToRlp(new BN(chainId)),
+      Buffer.from([]),
+      Buffer.from([]),
+  ]);
+
+  if (automationEnabled(options)) flowAccept(ledgerEvm.transport);
+  const signature = await ledgerEvm.signTransaction(path, rawUnsignedTx);
+  const signatureBN = {
+      v: new BN(signature.v, 16),
+      r: new BN(signature.r, 16),
+      s: new BN(signature.s, 16),
+  };
+  const signedTx = EthereumjsTx.fromTxData({...txParams,...signatureBN}, chainParams);
+  return signedTx.serialize().toString('hex');
+}
+
 program
   .command("transfer")
   .description("Transfer AVAX between addresses")
@@ -776,52 +805,23 @@ program
     const amount = parseAmountWithError(options.amount);
 
     return await withLedger(options, async (avalanche, evm) => {
-      if (automationEnabled(options)) flowAccept(avalanche.transport);
-      const version = await getParsedVersion(avalanche);
-      const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx;
-
-      const root_key = await get_extended_public_key(avalanche, AVA_BIP32_PREFIX);
-      console.error("Discovering addresses...");
-      const prepared = await prepare_for_transfer(ava, chain_objects, root_key);
-
       if (chain_objects.alias == AvaJS.utils.CChainAlias) {
-          const txParams = {
-              to: toAddress.split("-")[1],
-              value: amount,
-              gas: C_CHAIN_GAS_LIMIT,
-              gasPrice: C_CHAIN_GAS_PRICE,
-          };
-          const unsignedTx = EthereumjsTx.fromTxData(txParams);
-          const unsignedTxHex = unsignedTx.serialize().toString('hex');
-          const signature = await evm.signTransaction(ETH_BIP32_PREFIX, unsignedTxHex);
-          const signatureBN = {
-              v: new BN(signature.v, 16),
-              r: new BN(signature.r, 16),
-              s: new BN(signature.s, 16),
-          };
-
-          // https://github.com/ethereumjs/ethereumjs-vm/issues/705
-          // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
-          // EIP155 support. check/recalc signature v value.
-          const rv = parseInt(signatureBN.v, 16);
-          let cv = unsignedTx.getChainId() * 2 + 35;
-          if (rv !== cv && (rv & cv) !== rv) {
-              cv += 1; // add signature v bit.
-          }
-          const v = "0x" + cv.toString(16);
-
-          const signedTx = EthereumjsTx.fromTxData({...txParams,...signatureBN, v});
-          const signedTxHex = signedTx.serialize().toString('hex');
+          const path = ETH_BIP32_PREFIX + "/0/0";
           const rpc = get_network_node(options).path('/ext/bc/C/rpc');
           const web3 = new Web3(rpc.toString());
+          const chainId = await web3.eth.getChainId();
+          const networkId = await web3.eth.net.getId();
 
-          console.log(signatureBN);
-          console.log(v);
-          console.log(unsignedTxHex);
-          console.log(signedTxHex);
+          const toHex = n => '0x' + n.toString(16);
+          const txParams = {
+              to: chain_objects.addrHex,
+              value: toHex(amount),
+              gasLimit: toHex(C_CHAIN_GAS_LIMIT/10),
+              gasPrice: toHex(C_CHAIN_GAS_PRICE)
+          };
 
-          const x = await web3.eth.sendSignedTransaction('0x' + signedTxHex);
-          console.log(x);
+          const signedTxHex = await makeLedgerSignedTxEVM(evm, options, path, txParams, chainId, networkId);
+          await web3.eth.sendSignedTransaction('0x' + signedTxHex);
       } else {
           const version = await getParsedVersion(avalanche);
           const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx

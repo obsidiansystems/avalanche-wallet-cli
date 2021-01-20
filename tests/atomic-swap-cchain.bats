@@ -12,10 +12,7 @@ getNewReceiveAddressPChain(){
 
 getNewReceiveAddressCChain(){
   $CLI get-new-receive-address --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
-}
-
-getAddressCChain(){
-  $CLI get-address --chain C "0/0" $CLI_ARGS $NODE_ARGS | tail -n 1
+  # $CLI get-address --chain C "0/0" $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getBalanceXChain(){
@@ -28,6 +25,10 @@ getBalancePChain(){
 
 getBalanceCChain(){
   $CLI get-balance --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
+}
+
+getAddressCChain(){
+  $CLI get-address --chain C "0/0" $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 atomicSwapExport(){
@@ -43,9 +44,10 @@ atomicSwapImport(){
   $CLI import --chain $chain --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
-# bats will run each test multiple times, so to get around this (for the time being) we
-# run everything in a single test case
-@test "Atomic swap P-chain" {
+
+@test "Atomic swap C-chain" {
+
+  # set -x
   [[ "$(getBalanceXChain)" == "0 nAVAX" ]]
 
   setupLedgerFromFaucet
@@ -54,37 +56,53 @@ atomicSwapImport(){
 
   echo "Starting Atomic Swap Tests"
 
-  P_CHAIN_ADDRESS=$(getNewReceiveAddressPChain)
+  echo "get recieve address"
+  C_CHAIN_RECIEVE_ADDRESS=$(getNewReceiveAddressCChain)
+  echo "C_CHAIN_RECIEVE_ADDRESS=${C_CHAIN_RECIEVE_ADDRESS}"
 
-  [[ "$(getBalancePChain)" == "0 nAVAX" ]]
+  echo "get address"
+  C_CHAIN_ADDRESS=$(getAddressCChain)
+  echo "C_CHAIN_ADDRESS=${C_CHAIN_ADDRESS}"
 
-  atomicSwapExport "4000000 nAVAX" "X" $P_CHAIN_ADDRESS
+  echo "getBalanceCChain"
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
+
+
+  echo "atomicSwapExport"
+
+  $CLI export --amount "4000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS
+  # # atomicSwapExport "4000000 nAVAX" "X" $C_CHAIN_RECIEVE_ADDRESS
   sleep 8
 
+  echo "getBalanceXChain"
   [[ "$(getBalanceXChain)" == "5000000 nAVAX" ]]
 
-  [[ "$(getBalancePChain)" == "0 nAVAX" ]]
+  echo "getBalanceCChain"
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
 
-  atomicSwapImport "X" $P_CHAIN_ADDRESS
+  echo "atomicSwapImport"
+  $CLI import --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" --dest "$C_CHAIN_ADDRESS" $CLI_ARGS $NODE_ARGS
+
   sleep 8
 
-  [[ "$(getBalancePChain)" == "3000000 nAVAX" ]]
+  echo "getBalanceCChain"
+  [[ "$(getBalanceCChain)" == "3000000 nAVAX" ]]
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
 
-  atomicSwapExport "2000000 nAVAX" "P" $X_CHAIN_ADDRESS
+  atomicSwapExport "2000000 nAVAX" "C" $X_CHAIN_ADDRESS
   sleep 8
 
-  [[ "$(getBalancePChain)" == "0 nAVAX" ]]
+  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
 
-  atomicSwapImport "P" $X_CHAIN_ADDRESS
+  atomicSwapImport "C" $X_CHAIN_ADDRESS
   sleep 8
 
   [[ "$(getBalanceXChain)" == "6000000 nAVAX" ]]
 
   # Set the balance to zero for other tests
 
-  atomicSwapExport "5000000 nAVAX" "X" $P_CHAIN_ADDRESS
+  atomicSwapExport "5000000 nAVAX" "X" $C_CHAIN_ADDRESS
   sleep 8
 
   [[ "$(getBalanceXChain)" == "0 nAVAX" ]]

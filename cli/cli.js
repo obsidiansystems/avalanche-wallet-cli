@@ -159,9 +159,9 @@ function parseAddress (addrString) {
       addrBytes = Buffer.from(addrHex.slice(2), "hex");
     } else {
       const b = bech32.decode(addrRest)
-      addrBytes = bech32.fromWords(b.words);
+      addrBytes = Buffer.from(bech32.fromWords(b.words));
       hrp = b.prefix;
-      addrHex = "0x" + Buffer.toString("hex");
+      addrHex = "0x" + addrBytes.toString("hex");
     }
   }
 
@@ -341,8 +341,6 @@ program
 });
 
 async function get_extended_public_key(ledger, deriv_path) {
-  console.error(["get_extended_public_key", deriv_path]);
-
   requestLedgerAccept();
   extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path);
   hdw = new HDKey();
@@ -412,7 +410,8 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
   var index = 0;
   var all_unused = false;
-  const hashAddress = chain_objects.alias === "C" ? eth_key_to_pkh : hdkey_to_pkh;
+  // const hashAddress = chain_objects.alias === "C" ? eth_key_to_pkh : hdkey_to_pkh;
+  const hashAddress = hdkey_to_pkh;
   while (!all_unused || index < SCAN_SIZE) {
     const batch = {
       address_to_path: {}, // A dictionary from AVAX address to path (change/address)
@@ -434,7 +433,6 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
       batch.address_to_path[change_address] = "1/" + (index + i);
     }
 
-    console.error([`traverse_used_keys@${chain_objects.alias}::batch`, hdkey, batch]);
     // Get UTXOs for this batch
     batch.utxoset = await (await chain_objects.api.getUTXOs(batch.non_change.addresses.concat(batch.change.addresses), chain_objects.alias)).utxos;
 
@@ -449,10 +447,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
 // Given a hdkey (at the account level), sum the UTXO balances
 // under that key.
 async function sum_child_balances(ava, chain_objects, hdkey, log = false) {
-  console.error(`sum_child_balances(ava, {alias=${JSON.stringify(chain_objects.alias)}, ...}, ${JSON.stringify(hdkey)}, ${log})`);
   var balance = new BN(0);
-
-  console.error("getting balance:")
 
   await traverse_used_keys(ava, chain_objects, hdkey, async batch => {
     // Total the balance for all PKHs
@@ -463,13 +458,11 @@ async function sum_child_balances(ava, chain_objects, hdkey, log = false) {
       }
       if (log) {
         const addr = pkh_to_some_address(ava, chain_objects.alias, Buffer.from(pkh, 'hex'));
-        console.error(batch.address_to_path[addr], addr, bal.toString());
       }
       balance = balance.add(bal);
     };
   });
 
-  console.error("got balance:")
   return balance;
 }
 
@@ -944,6 +937,7 @@ program
   .command("import")
   .description("Import AVAX from a different chain")
   .requiredOption("--to <account>", "Recipient account")
+  .option("--dest <account>", "Recipient account")
   .add_chain_option()
   .add_node_option()
   .add_device_option()
@@ -968,24 +962,17 @@ program
       const fromAddresses = [];
       const changeAddresses = [];
       console.error("Building TX...");
-      console.error(["import utxos", prepared.utxoset]);
-      if (destination_chain_objects.alias == "C") {
-        console.error(
-           `ava.CChain().buildImportTx(
-                ${JSON.stringify(prepared.utxoset)},
-                ${JSON.stringify(destination_chain_objects.addrHex)},
-                ${JSON.stringify([destination_chain_objects.addrBech32])},
-                ${JSON.stringify(source_chain_id)},
-                ${JSON.stringify(fromAddresses)},
-              )`);
-      }
+
+      const destAddress = options.dest !== undefined
+        ? parseAddress(options.dest)(ava)
+        : destination_chain_objects;
 
       // const toAddressHex = bech32. toAddress.split("-")[1]
 
       const unsignedImportTx = await ((destination_chain_objects.alias == "C") // It seems like the evm api wants to have its arguments in a different order.
             ? destination_chain_objects.api.buildImportTx(
                 prepared.utxoset,
-                destination_chain_objects.addrHex,
+                destAddress.addrHex,
                 [destination_chain_objects.addrBech32],
                 source_chain_id,
                 fromAddresses,

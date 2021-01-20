@@ -24,7 +24,7 @@ getBalancePChain(){
 }
 
 getBalanceCChain(){
-  $CLI get-balance --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-balance "$@" --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getAddressCChain(){
@@ -45,6 +45,15 @@ atomicSwapImport(){
 }
 
 
+assertTest(){
+  if test "$@" ; then
+    return 0
+  else
+    echo "expected: " "$@"
+    exit 1
+  fi
+}
+
 @test "Atomic swap C-chain" {
 
   # set -x
@@ -64,9 +73,8 @@ atomicSwapImport(){
   C_CHAIN_ADDRESS=$(getAddressCChain)
   echo "C_CHAIN_ADDRESS=${C_CHAIN_ADDRESS}"
 
-  echo "getBalanceCChain"
-  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
-
+  echo "getBalanceCChain 1"
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
 
   echo "atomicSwapExport"
 
@@ -74,22 +82,21 @@ atomicSwapImport(){
   # # atomicSwapExport "4000000 nAVAX" "X" $C_CHAIN_RECIEVE_ADDRESS
   sleep 8
 
-  echo "getBalanceXChain"
   [[ "$(getBalanceXChain)" == "5000000 nAVAX" ]]
 
-  echo "getBalanceCChain"
-  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
+  assertTest "$(getBalanceCChain)" == "0 nAVAX"
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
 
   echo "atomicSwapImport"
   $CLI import --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" --dest "$C_CHAIN_ADDRESS" $CLI_ARGS $NODE_ARGS
 
   sleep 8
 
-  echo "getBalanceCChain"
-  [[ "$(getBalanceCChain)" == "3000000 nAVAX" ]]
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "4000000000000000 WEI"
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
 
+  echo "export c"
   atomicSwapExport "2000000 nAVAX" "C" $X_CHAIN_ADDRESS
   sleep 8
 

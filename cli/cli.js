@@ -516,12 +516,22 @@ program
     } else {
       const chain_objects = parseAddress(address)(ava);
 
-      var result
-        = (await chain_objects.api.getBalance(address,
-            BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
-            )).balance;
+      switch(chain_objects.alias) {
+        case "C":
+          const rpc = get_network_node(options).path('/ext/bc/C/rpc');
+          const web3 = new Web3(rpc.toString());
+          var result = await web3.eth.getBalance(chain_objects.addrHex);
+          console.log(result + " WEI");
+          break;
+        default:
+          var result
+            = (await chain_objects.api.getBalance(address,
+                BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
+                )).balance;
 
-      console.log(result.toString(10, 0) + " nAVAX");
+          console.log(result.toString(10, 0) + " nAVAX");
+          break
+      }
     }
 });
 

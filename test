@@ -1,5 +1,5 @@
 #! /usr/bin/env nix-shell
-#! nix-shell default.nix -A shell -i bash
+#! nix-shell default.nix -A shells.test -i bash
 set -euo pipefail
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )

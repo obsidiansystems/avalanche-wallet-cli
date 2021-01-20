@@ -65,9 +65,11 @@ let
 
   tools = [ avash gecko nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn jq curl ncurses parallel ]);
 
-  shell = pkgs.mkShell ({
-    buildInputs = tools;
-  } // tests.testsEnvironment);
+  shells = {
+    test = pkgs.mkShell ({
+      buildInputs = tools;
+    } // tests.testsEnvironment);
+  };
 
   tests = rec {
     testsEnvironment = {
@@ -93,7 +95,7 @@ let
   };
 
 in {
-  inherit cli-app-avalanche gecko shell snapPackage;
+  inherit cli-app-avalanche gecko shells snapPackage tools;
   tests-full = tests;
   tests = tests.test-run;
 }

@@ -823,6 +823,7 @@ program
           const signedTxHex = await makeLedgerSignedTxEVM(evm, options, path, txParams, chainId, networkId);
           await web3.eth.sendSignedTransaction('0x' + signedTxHex);
       } else {
+          if (automationEnabled(options)) flowAccept(avalanche.transport);
           const version = await getParsedVersion(avalanche);
           const signFunction = (version.major === 0 && version.minor < 3) ? signHash_UnsignedTx : sign_UnsignedTx
 

@@ -86,6 +86,7 @@ let
       #!${pkgs.bash}/bin/bash
       export CLI='${cli-app-avalanche}/bin/avalanche-ledger-cli'
       export FAUCET='${cli-app-avalanche}/bin/avalanche-ledger-faucet'
+      export TEST_CASES='${./tests}'
     '' + builtins.readFile ./tests/tests.sh;
 
     test-script = pkgs.writeScriptBin "test-script.sh" testScriptText;

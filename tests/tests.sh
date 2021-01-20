@@ -2,7 +2,9 @@
 
 set -euo pipefail
 
-TEST_CASE=$1
+if [ ! -v TEST_CASES ]; then
+    TEST_CASES=$1;
+fi
 
 setupFaucet() {
   curl -s -X POST --data '{
@@ -123,7 +125,7 @@ sleep 6
 setupFaucet
 setupFakeUser
 
-bats -p "$TEST_CASE"
+bats -p "$TEST_CASES"
 bats_result=$?
 
 exit $bats_result

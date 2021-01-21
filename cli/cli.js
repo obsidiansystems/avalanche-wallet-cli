@@ -18,8 +18,10 @@ const EthereumjsCommon = require('@ethereumjs/common').default;
 const EthereumjsTx = require("@ethereumjs/tx").Transaction;
 const {bnToRlp, rlp} = require("ethereumjs-util");
 const Web3 = require('web3');
-const keccak256 = require('keccak256');
-const secp256k1 = require('secp256k1');
+// const keccak256 = require('keccak256');
+// const secp256k1 = require('secp256k1');
+
+const {expect} = require("chai");
 
 const axios = require("axios");
 
@@ -198,8 +200,8 @@ async function get_transport_with_wallet(devices, open, chosen_device, wallet_id
       const transport = await open(device);
       if (transport === undefined) continue;
       try {
-        const ledger = new HwAppAvalanche(transport, logger=console.error);
-        const device_wallet_id = await ledger.getWalletId().catch(_ => console.error("[Skipped: Couldn't get wallet ID]"));
+        const ledger = new HwAppAvalanche(transport);
+        const device_wallet_id = await ledger.getWalletId().catch(() => console.error("[Skipped: Couldn't get wallet ID]"));
         if (device_wallet_id == undefined) continue;
         const device_wallet_id_hex = device_wallet_id.toString('hex');
         process.stderr.write(device_wallet_id_hex);
@@ -246,7 +248,7 @@ async function makeWithTransport(options) {
 async function withLedger(options, f) {
   const withTransport = await makeWithTransport(options);
   return await withTransport(async transport => {
-    return await f(new HwAppAvalanche(transport, logger=console.error), new HwAppEth(transport));
+    return await f(new HwAppAvalanche(transport), new HwAppEth(transport));
   });
 }
 
@@ -342,8 +344,8 @@ program
 
 async function get_extended_public_key(ledger, deriv_path) {
   requestLedgerAccept();
-  extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path);
-  hdw = new HDKey();
+  const extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path);
+  const hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
   return hdw;
@@ -366,7 +368,7 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
   });
 
   // Go backwards through the generated addresses to find the last unused address
-  last_unused = null;
+  var last_unused = null;
   for (var i = addresses.length - 1; i >= 0; i--) {
     const pkh = pkhs[i].toString('hex');
     const utxoids = utxoset.addressUTXOs[pkh];
@@ -380,7 +382,7 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
     } else {
       break;
     }
-  };
+  }
 
   return last_unused;
 }
@@ -388,9 +390,11 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
 function hdkey_to_pkh(hdkey) {
   return (new AvaJS.common.SECP256k1KeyPair()).addressFromPublicKey(hdkey.publicKey);
 }
+/*
 function eth_key_to_pkh(hdkey) {
   return keccak256(Buffer.from(secp256k1.publicKeyConvert(hdkey.publicKey, false)).slice(1)).slice(0,20);
 }
+*/
 
 function pkh_to_some_address(ava, alias, pkh) {
   switch (alias) {
@@ -446,21 +450,18 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
 
 // Given a hdkey (at the account level), sum the UTXO balances
 // under that key.
-async function sum_child_balances(ava, chain_objects, hdkey, log = false) {
+async function sum_child_balances(ava, chain_objects, hdkey) {
   var balance = new BN(0);
 
   await traverse_used_keys(ava, chain_objects, hdkey, async batch => {
     // Total the balance for all PKHs
-    for (const [pkh, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
+    for (const [pkhIgnored, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
       var bal = new BN(0);
       for (const utxoid of Object.keys(utxoids)) {
         bal = bal.add(batch.utxoset.utxos[utxoid].getOutput().getAmount());
       }
-      if (log) {
-        const addr = pkh_to_some_address(ava, chain_objects.alias, Buffer.from(pkh, 'hex'));
-      }
       balance = balance.add(bal);
-    };
+    }
   });
 
   return balance;
@@ -517,20 +518,22 @@ program
       const chain_objects = parseAddress(address)(ava);
 
       switch(chain_objects.alias) {
-        case "C":
+        case "C": {
           const rpc = get_network_node(options).path('/ext/bc/C/rpc');
           const web3 = new Web3(rpc.toString());
-          var result = await web3.eth.getBalance(chain_objects.addrHex);
+          const result = await web3.eth.getBalance(chain_objects.addrHex);
           console.log(result + " WEI");
           break;
-        default:
-          var result
+        }
+        default: {
+          const result
             = (await chain_objects.api.getBalance(address,
                 BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
                 )).balance;
 
           console.log(result.toString(10, 0) + " nAVAX");
-          break
+          break;
+        }
       }
     }
 });
@@ -564,7 +567,7 @@ async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, cha
       changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
     const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
-  }, options, ledger);
+  });
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
@@ -577,7 +580,7 @@ async function signHash_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path,
     if (automationEnabled(options)) flowAccept(ledger.transport);
     const result = await ledger.signHash(prefix, suffixes, buff);
     return result
-  }, options, ledger);
+  });
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
@@ -592,7 +595,7 @@ async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_pat
       changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
     const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
-  }, options, ledger);
+  });
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
@@ -605,13 +608,13 @@ async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to
     if (automationEnabled(options)) flowAccept(ledger.transport);
     const result = await ledger.signHash(prefix, suffixes, buff);
     return result
-  }, options, ledger);
+  });
   return new chain_objects.vm.Tx(unsignedTx, sigs);
 }
 
 
 /* Adapted from avm/tx.ts for class BaseTx */
-async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, ledgerSign, options, ledger) {
+async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, ledgerSign) {
   let path_suffixes = new Set();
   for (let i = 0; i < inputs.length; i++) {
     const sigidxs = inputs[i].getInput().getSigIdxs();
@@ -620,7 +623,7 @@ async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, led
     }
   }
 
-  const path_suffix_to_sig_map = await sign_with_ledger(ledgerSign, txbuff, path_suffixes, options, ledger);
+  const path_suffix_to_sig_map = await sign_with_ledger(ledgerSign, txbuff, path_suffixes);
 
   const sigs = [];
   for (let i = 0; i < inputs.length; i++) {
@@ -640,7 +643,7 @@ async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, led
   return sigs;
 }
 
-async function sign_with_ledger(ledgerSign, txbuff, path_suffixes, options, ledger) {
+async function sign_with_ledger(ledgerSign, txbuff, path_suffixes) {
   const path_suffixes_arr = Array.from(path_suffixes);
   console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
   requestLedgerAccept();
@@ -704,23 +707,22 @@ function parseAmount(str) {
       } else {
         return false;
       }
-      break;
     case "AVAX":
-    case "":
+    case "": {
       const mkExp = n => (new BN(10)).pow(new BN(n));
       const i = (new BN(integerPart)).mul(mkExp(9));
       const exponent = 9 - fractionalPart.length;
       if (exponent < 0) return false; // Specified more precision than AVAX can hold
       const f = new BN(fractionalPart).mul(mkExp(exponent));
       return i.add(f);
-      break;
+    }
     default:
       return false;
   }
 }
 
 function parseVersion(str) {
-  parts = str.split(".");
+  const parts = str.split(".");
   if (parts.length == 3) {
     return {
       "major": parseInt(parts[0]),
@@ -749,14 +751,11 @@ function compareVersions(a, b) {
     }
 }
 
-function minVersion(a, b) {
-    return compareVersions(a, b) < 0 ? a : b;
-}
 function maxVersion(a, b) {
     return compareVersions(a, b) >= 0 ? a : b;
 }
 
-async function getParsedVersion(ledger, version) {
+async function getParsedVersion(ledger) {
   const appDetails = await ledger.getAppConfiguration();
   return parseVersion(appDetails.version);
 }
@@ -910,7 +909,7 @@ program
     const amount = parseAmountWithError(options.amount);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
-      signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_alias, "export"]]) ? sign_UnsignedTx : signHash_UnsignedTx;
+      const signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_alias, "export"]]) ? sign_UnsignedTx : signHash_UnsignedTx;
 
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
@@ -955,14 +954,13 @@ program
     const ava = ava_js_from_options(options);
     const toAddress = options.to;
     const destination_chain_objects = parseAddress(toAddress)(ava);
-    const destination_chain_alias = destination_chain_objects.alias;
     // console.log(["toAddress:", destination_chain_objects]);
     const source_chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
-      signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_objects.alias, "import"]]) ? sign_UnsignedTxImport : signHash_UnsignedTxImport;
+      const signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_objects.alias, "import"]]) ? sign_UnsignedTxImport : signHash_UnsignedTxImport;
 
-      source_chain_id = source_chain_objects.api.getBlockchainID();
+      const source_chain_id = source_chain_objects.api.getBlockchainID();
 
       if (automationEnabled(options)) flowAccept(ledger.transport);
       const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
@@ -1053,9 +1051,9 @@ function parseDateToUnixTime(str, relativeTo) {
       return new BN(millis / 1000);
     }
   } else {
-    mins = relative.mins === undefined ? 0 : relative.mins;
-    hours = relative.hours === undefined ? 0 : relative.hours;
-    days = relative.days === undefined ? 0 : relative.days;
+    const mins = relative.mins === undefined ? 0 : relative.mins;
+    const hours = relative.hours === undefined ? 0 : relative.hours;
+    const days = relative.days === undefined ? 0 : relative.days;
     return new BN((Math.floor(relativeTo.getTime() / 1000)) + 60 * (mins + 60 * (hours + 24 * days)));
   }
 }
@@ -1178,19 +1176,19 @@ program
     // Preemptively reject delegations which lie outside the validator time
     // slot, because the node won't give us an error and the TX will never be
     // accepted.
-    validators = await chain_objects.api.getCurrentValidators();
-    validator = validators.validators.find(v => v.nodeID === nodeId)
+    const validators = await chain_objects.api.getCurrentValidators();
+    const validator = validators.validators.find(v => v.nodeID === nodeId)
     if (validator !== undefined) {
-      validatorStartTime = new BN(validator.startTime);
-      validatorEndTime = new BN(validator.endTime);
+      const validatorStartTime = new BN(validator.startTime);
+      const validatorEndTime = new BN(validator.endTime);
       if (startTime.lt(validatorStartTime)) {
-        validatorDate = new Date(validatorStartTime.toNumber() * 1000);
-        delegatorDate = new Date(startTime.toNumber() * 1000);
+        const validatorDate = new Date(validatorStartTime.toNumber() * 1000);
+        const delegatorDate = new Date(startTime.toNumber() * 1000);
         log_error_and_exit("Chosen delegation start time [" + delegatorDate.toString() + "] starts before the validator start time [" + validatorDate.toString() + "].");
       }
       if (endTime.gt(validatorEndTime)) {
-        validatorDate = new Date(validatorEndTime.toNumber() * 1000);
-        delegatorDate = new Date(endTime.toNumber() * 1000);
+        const validatorDate = new Date(validatorEndTime.toNumber() * 1000);
+        const delegatorDate = new Date(endTime.toNumber() * 1000);
         log_error_and_exit("Chosen delegation end time [" + delegatorDate.toString() + "] ends after the validator end time [" + validatorDate.toString() + "].");
       }
     }
@@ -1309,6 +1307,7 @@ function flowAccept(speculos, n) {
     var prompts = [{}];
     var subscript = speculos.automationEvents.subscribe({
       next: evt => {
+        var isFirst, isLast;
         if (evt.y === 3) {
           let m = evt.text.match(/^(.*) \(([0-9])\/([0-9])\)$/)
           if (m) {
@@ -1365,7 +1364,7 @@ function acceptPrompts(expectedPrompts, selectPrompt, finalPrompt = selectPrompt
       // should tell the person running the test what to do.
       if (expectedPrompts) {
         console.log("Expected prompts: ");
-        for (p in expectedPrompts) {
+        for (const p in expectedPrompts) {
           console.log("Prompt %d", p);
           console.log(expectedPrompts[p][3]);
           console.log(expectedPrompts[p][17]);
@@ -1377,6 +1376,7 @@ function acceptPrompts(expectedPrompts, selectPrompt, finalPrompt = selectPrompt
       let promptList = [];
       let finalDone = false;
       let done = false;
+      var screen;
       while(!done && (screen = await readMultiScreenPrompt(speculos, screens))) {
         if(screen.body !== selectPrompt && screen.body !== finalPrompt && screen.body != "Reject") {
           promptList.push(screen);
@@ -1415,7 +1415,7 @@ async function automationStart(speculos, interactionFunc) {
   // This is so that you can just "await flowAccept(this.speculos);" in a test
   // without actually waiting for the prompts.  If we don't do this, you can
   // end up with two flowAccept calls active at once, causing issues.
-  let subNum = speculos.handlerNum++;
+  // let subNum = speculos.handlerNum++;
   let promptLockResolve;
   let promptsLock=new Promise(r=>{promptLockResolve=r});
   if(speculos.promptsEndPromise) {
@@ -1428,7 +1428,7 @@ async function automationStart(speculos, interactionFunc) {
   let sendPromise=new Promise(r=>{sendEvent = r;});
   let asyncEventIter = {
     next: async ()=>{
-      promptVal=await sendPromise;
+      const promptVal=await sendPromise;
       sendPromise=new Promise(r=>{sendEvent = r;});
       return promptVal;
     },
@@ -1457,7 +1457,7 @@ async function automationStart(speculos, interactionFunc) {
       } else {
         body = evt.text;
       }
-      screen = { ...(header && {header}), body };
+      var screen = { ...(header && {header}), body };
       // console.log("SCREEN (" + subNum + "): " + JSON.stringify(screen));
       sendEvent(screen);
       body=undefined;

@@ -18,7 +18,7 @@ module.exports = {
         "version": ">=8.3.0",
         "ignores": []
       }],
-      "no-unused-vars": ["error", {
+      "no-unused-vars": ["warn", {
         "varsIgnorePattern": "[iI]gnored"
       }],
     },

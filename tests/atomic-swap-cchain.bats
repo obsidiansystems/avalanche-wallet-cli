@@ -1,5 +1,5 @@
 setupLedgerFromFaucet(){
-  $FAUCET fund-ledger 2000000 $SPECULOS_ARGS $NODE_ARGS
+  $FAUCET fund-ledger 20000000 $SPECULOS_ARGS $NODE_ARGS
 }
 
 getNewReceiveAddressXChain(){
@@ -44,6 +44,11 @@ atomicSwapImport(){
   $CLI import --chain $chain --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
+transfer(){
+  amount=$1
+  toAccount=$2
+  $CLI transfer --amount "$amount" --to $toAccount $CLI_ARGS $NODE_ARGS
+}
 
 assertTest(){
   if test "$@" ; then
@@ -61,7 +66,7 @@ assertTest(){
 
   setupLedgerFromFaucet
 
-  [[ "$(getBalanceXChain)" == "10000000 nAVAX" ]]
+  [[ "$(getBalanceXChain)" == "100000000 nAVAX" ]]
 
   echo "Starting Atomic Swap Tests"
 
@@ -78,11 +83,11 @@ assertTest(){
 
   echo "atomicSwapExport"
 
-  $CLI export --amount "4000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS
-  # # atomicSwapExport "4000000 nAVAX" "X" $C_CHAIN_RECIEVE_ADDRESS
+  $CLI export --amount "40000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS
+  # # atomicSwapExport "40000000 nAVAX" "X" $C_CHAIN_RECIEVE_ADDRESS
   sleep 8
 
-  [[ "$(getBalanceXChain)" == "5000000 nAVAX" ]]
+  assertTest "$(getBalanceXChain)" == "59000000 nAVAX"
 
   assertTest "$(getBalanceCChain)" == "0 nAVAX"
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
@@ -92,7 +97,18 @@ assertTest(){
 
   sleep 8
 
-  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "4000000000000000 WEI"
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000 WEI"
+
+  # C-chain transfer
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000 WEI"
+  assertTest "$(getBalanceCChain "$C_CHAIN_RECIEVE_ADDRESS")" == "0 WEI"
+  C_CHAIN_TRANSFER_TARGET_ADDRESS=$(getNewReceiveAddressCChain)
+  echo "C_CHAIN_TRANSFER_TARGET_ADDRESS: $C_CHAIN_TRANSFER_TARGET_ADDRESS"
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "0 WEI"
+  transfer "10 nAVAX" "$C_CHAIN_TRANSFER_TARGET_ADDRESS"
+  sleep 8
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "10 WEI"
+
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
 

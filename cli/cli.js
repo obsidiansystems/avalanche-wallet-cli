@@ -50,6 +50,7 @@ const SCAN_SIZE = 70; // the total number of utxos to look at initially to calcu
 
 // https://github.com/ava-labs/avalanche-docs/blob/4be62d012368fe77caec6afe9d963ed4cc1e6501/learn/platform-overview/transaction-fees.md
 const C_CHAIN_GAS_LIMIT = 1e9;
+const C_CHAIN_BASE_TX_FEE = 21000;
 const C_CHAIN_GAS_PRICE = 4.7e-7 * 1e9 * 1e9 // 1 AVAX = 1e9 nAVAX, 1nAVAX ~ 1 Gwei, 1 Gwei = 1e9 Wei;
 
 // TODO replace this with something better
@@ -315,8 +316,8 @@ program
       if (automationEnabled(options)) flowAccept(avalanche.transport);
 
       if (chain_objects.alias == AvaJS.utils.CChainAlias) {
-        const pkh = await evm.getAddress(path, true, true);
-        console.log("C-" + pkh.address);
+        const pk = await evm.getAddress(path, true, true);
+        console.log("C-0x" + ledgerAddressWorkaround(pk));
       }
       else {
         const pubk_hash = await avalanche.getWalletAddress(path, options.network);
@@ -388,8 +389,16 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
 function hdkey_to_pkh(hdkey) {
   return (new AvaJS.common.SECP256k1KeyPair()).addressFromPublicKey(hdkey.publicKey);
 }
-function eth_key_to_pkh(hdkey) {
-  return keccak256(Buffer.from(secp256k1.publicKeyConvert(hdkey.publicKey, false)).slice(1)).slice(0,20);
+function eth_hdkey_to_pkh(hdkey) {
+  return eth_key_to_address(Buffer.from(secp256k1.publicKeyConvert(hdkey.publicKey, false)).slice(1));
+}
+function eth_key_to_address(pk) {
+  return keccak256(pk).slice(-20);
+}
+// TODO: fix/bump ledger
+function ledgerAddressWorkaround(pk) {
+    let buf = Buffer.from(pk.publicKey, 'hex').slice(1);
+    return eth_key_to_address(buf).toString('hex');
 }
 
 function pkh_to_some_address(ava, alias, pkh) {
@@ -410,7 +419,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
   var index = 0;
   var all_unused = false;
-  // const hashAddress = chain_objects.alias === "C" ? eth_key_to_pkh : hdkey_to_pkh;
+  // const hashAddress = chain_objects.alias === "C" ? eth_hdkey_to_pkh : hdkey_to_pkh;
   const hashAddress = hdkey_to_pkh;
   while (!all_unused || index < SCAN_SIZE) {
     const batch = {
@@ -809,7 +818,7 @@ program
 
     return await withLedger(options, async (avalanche, evm) => {
       if (chain_objects.alias == AvaJS.utils.CChainAlias) {
-          const path = ETH_BIP32_PREFIX + "/0/0";
+          const path = AVA_BIP32_PREFIX + "/0/0"; // TODO: Use EVM?
           const rpc = get_network_node(options).path('/ext/bc/C/rpc');
           const web3 = new Web3(rpc.toString());
           const chainId = await web3.eth.getChainId();
@@ -819,10 +828,11 @@ program
           const txParams = {
               to: chain_objects.addrHex,
               value: toHex(amount),
-              gasLimit: toHex(C_CHAIN_GAS_LIMIT/10),
+              gasLimit: toHex(C_CHAIN_BASE_TX_FEE),
               gasPrice: toHex(C_CHAIN_GAS_PRICE)
           };
 
+          if (automationEnabled(options)) flowAccept(avalanche.transport);
           const signedTxHex = await makeLedgerSignedTxEVM(evm, options, path, txParams, chainId, networkId);
           await web3.eth.sendSignedTransaction('0x' + signedTxHex);
       } else {

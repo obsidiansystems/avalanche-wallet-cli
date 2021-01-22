@@ -24,7 +24,7 @@ getBalancePChain(){
 }
 
 getBalanceCChain(){
-  $CLI get-balance "$@" --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
+  $CLI get-balance $@ --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getAddressCChain(){
@@ -59,6 +59,8 @@ assertTest(){
   fi
 }
 
+ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
+
 @test "Atomic swap C-chain" {
 
   # set -x
@@ -80,7 +82,7 @@ assertTest(){
 
   echo "getBalanceCChain 1"
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
-
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS --assetID $ANT_A")" == "0"
   echo "atomicSwapExport"
 
   $CLI export --amount "40000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS

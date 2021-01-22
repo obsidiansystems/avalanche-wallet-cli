@@ -88,6 +88,10 @@ commander.Command.prototype.add_node_option = function() {
     .add_network_option();
 }
 
+commander.Command.prototype.add_assetID_option = function() {
+  return this.option("--assetID <uint256>", (x) => parseInt(x, 10));
+}
+
 const network_default_node = {
   "avax" : "https://api.avax.network",
   "fuji" : "https://api.avax-test.network",
@@ -510,6 +514,7 @@ program
   .add_node_option()
   .add_device_option()
   .add_chain_option()
+  .add_assetID_option()
   .action(async (address, options) => {
     const ava = ava_js_from_options(options);
     if (address === undefined) {
@@ -528,8 +533,18 @@ program
         case "C": {
           const rpc = get_network_node(options).path('/ext/bc/C/rpc');
           const web3 = new Web3(rpc.toString());
-          const result = await web3.eth.getBalance(chain_objects.addrHex);
-          console.log(result + " WEI");
+          if(options.assetID == undefined) {
+              const result = await web3.eth.getBalance(chain_objects.addrHex);
+              console.log(result + " WEI");
+          }
+          else {
+              const response = await chain_objects.api.callMethod (
+                  "eth_getAssetBalance",
+                  [chain_objects.addrHex, "latest", options.assetID],
+                  "ext/bc/C/rpc");
+              const balance = parseInt(response.data.result, 16);
+              console.log(balance);
+          }
           break;
         }
         default: {

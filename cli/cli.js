@@ -49,6 +49,9 @@ const ETH_BIP32_PREFIX = "m/44'/60'/0'" // Restricted to 0' for now
 const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
 const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
 
+const nativeAssetCallAddr = "0x0100000000000000000000000000000000000002"
+
+const ASSET_CALL_GAS_LIMIT = 1e5
 
 // https://github.com/ava-labs/avalanche-docs/blob/4be62d012368fe77caec6afe9d963ed4cc1e6501/learn/platform-overview/transaction-fees.md
 const C_CHAIN_GAS_LIMIT = 1e9;
@@ -519,10 +522,10 @@ program
     const ava = ava_js_from_options(options);
     if (address === undefined) {
       const chain_objects = make_chain_objects(ava, options.chain);
-      await withLedger(options, async ledger => {
+      await withLedger(options, async (avalancheLedger) => {
 
-        if (automationEnabled(options)) flowAccept(ledger.transport);
-        const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+        if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
+        const root_key = await get_extended_public_key(avalancheLedger, AVA_BIP32_PREFIX);
         const balance = await sum_child_balances(ava, chain_objects, root_key, options.listAddresses);
         console.log(balance.toString() + " nAVAX");
       });
@@ -782,10 +785,18 @@ async function getParsedVersion(ledger) {
   return parseVersion(appDetails.version);
 }
 
-async function makeLedgerSignedTxEVM(ledgerEvm, options, path, txParams, chainId, networkId) {
-  const chainParams = { common: EthereumjsCommon.forCustomChain('mainnet', { networkId, chainId },'istanbul')};
-  const unsignedTx = EthereumjsTx.fromTxData(txParams, chainParams);
+async function makeLedgerSignedTxEVM(ledgerEvm, options, web3, partialTxParams) {
+  const path = AVA_BIP32_PREFIX + "/0/0"; // TODO: Use ETH?
+  const pk = await ledgerEvm.getAddress(path, true, true);
+  const address = ledgerAddressWorkaround(pk);
+  const nonce = "0x" + (await web3.eth.getTransactionCount(address)).toString(16);
+  const unsignedTxParams = {...partialTxParams, nonce};
 
+  const chainId = await web3.eth.getChainId();
+  const networkId = await web3.eth.net.getId();
+  const chainParams = { common: EthereumjsCommon.forCustomChain('mainnet', { networkId, chainId }, 'istanbul')};
+
+  const unsignedTx = EthereumjsTx.fromTxData({...unsignedTxParams}, chainParams);
   //TODO: fix upstream serialize for EIP155
   const rawUnsignedTx = rlp.encode([
       bnToRlp(unsignedTx.nonce),
@@ -806,9 +817,49 @@ async function makeLedgerSignedTxEVM(ledgerEvm, options, path, txParams, chainId
       r: new BN(signature.r, 16),
       s: new BN(signature.s, 16),
   };
-  const signedTx = EthereumjsTx.fromTxData({...txParams,...signatureBN}, chainParams);
+  const signedTx = EthereumjsTx.fromTxData({...unsignedTxParams,...signatureBN}, chainParams);
   return signedTx.serialize().toString('hex');
 }
+
+async function assetCall(ledgerEvm, options, web3, addr, assetID, amount, shouldDeposit) {
+  const assetIDABI = web3.eth.abi.encodeParameter('uint256', BinTools.cb58Decode(assetID));
+  const amountABI = web3.eth.abi.encodeParameter('uint256', amount);
+  const sig = web3.eth.abi.encodeFunctionSignature("deposit()").slice(2);
+  const data = addr + assetIDABI.slice(2) + amountABI.slice(2) + (shouldDeposit ? sig : "");
+
+  const toHex = n => '0x' + n.toString(16);
+  const txParams = {
+    to: nativeAssetCallAddr,
+    value: toHex(0),
+    data: "0x" + data,
+    gasLimit: toHex(ASSET_CALL_GAS_LIMIT),
+    gasPrice: toHex(C_CHAIN_GAS_PRICE)
+  };
+  if (automationEnabled(options)) flowAccept(ledgerEvm.transport);
+  const signedTxHex = await makeLedgerSignedTxEVM(ledgerEvm, options, web3, txParams);
+  return await web3.eth.sendSignedTransaction('0x' + signedTxHex);
+}
+
+program
+  .command("deposit")
+  .description("Deposit ANT into ARC-20")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
+  .requiredOption("--to <account>", "Recipient account")
+  .add_node_option()
+  .add_device_option()
+  .add_assetID_option()
+  .action(async options => await withLedger(options, async (avalanche, evm) => {
+      const rpc = get_network_node(options).path('/ext/bc/C/rpc');
+      const web3 = new Web3(rpc.toString());
+      const ava = ava_js_from_options(options);
+      const chain_objects = parseAddress(options.to)(ava);
+      const amount = parseAmountWithError(options.amount);
+
+      if (chain_objects.alias != AvaJS.utils.CChainAlias)
+          log_error_and_exit("Can only deposit on C-chain addresses")
+
+      await assetCall(evm, options, web3, chain_objects.addrHex.slice(2), options.assetID, amount, true);
+  }))
 
 program
   .command("transfer")
@@ -817,6 +868,7 @@ program
   .requiredOption("--to <account>", "Recipient account")
   .add_node_option()
   .add_device_option()
+  .add_assetID_option()
   .action(async options => {
     const ava = ava_js_from_options(options);
     const toAddress = options.to;
@@ -829,24 +881,24 @@ program
     const amount = parseAmountWithError(options.amount);
 
     return await withLedger(options, async (avalanche, evm) => {
-      if (chain_objects.alias == AvaJS.utils.CChainAlias) {
-          const path = AVA_BIP32_PREFIX + "/0/0"; // TODO: Use EVM?
-          const rpc = get_network_node(options).path('/ext/bc/C/rpc');
-          const web3 = new Web3(rpc.toString());
-          const chainId = await web3.eth.getChainId();
-          const networkId = await web3.eth.net.getId();
+      const rpc = get_network_node(options).path('/ext/bc/C/rpc');
+      const web3 = new Web3(rpc.toString());
+      const toHex = n => '0x' + n.toString(16);
 
-          const toHex = n => '0x' + n.toString(16);
-          const txParams = {
+      if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+          if(options.assetID == undefined) {
+            const txParams = {
               to: chain_objects.addrHex,
               value: toHex(amount),
               gasLimit: toHex(C_CHAIN_BASE_TX_FEE),
               gasPrice: toHex(C_CHAIN_GAS_PRICE)
-          };
-
-          if (automationEnabled(options)) flowAccept(avalanche.transport);
-          const signedTxHex = await makeLedgerSignedTxEVM(evm, options, path, txParams, chainId, networkId);
-          await web3.eth.sendSignedTransaction('0x' + signedTxHex);
+            };
+            if (automationEnabled(options)) flowAccept(avalanche.transport);
+            const signedTxHex = await makeLedgerSignedTxEVM(evm, options, web3, txParams);
+            await web3.eth.sendSignedTransaction('0x' + signedTxHex);
+          }
+          else
+              await assetCall(evm, options, web3, chain_objects.addrHex.slice(2), options.assetID, amount, false);
       } else {
           if (automationEnabled(options)) flowAccept(avalanche.transport);
           const version = await getParsedVersion(avalanche);

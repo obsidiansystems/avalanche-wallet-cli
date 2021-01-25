@@ -1,8 +1,8 @@
 {
   "owner": "ava-labs",
   "repo": "coreth",
-  "branch": "master",
+  "branch": "apricot",
   "private": false,
-  "rev": "374b401198759f23bac435a78c5b1fa2c516aad9",
-  "sha256": "02c3f7ssd8cd8b3af7yk984zbxxcmds96f15lbpggcbn8afplngq"
+  "rev": "c7ba371721c8821ce407779b3d0f4f41555f870c",
+  "sha256": "0b32wcv2wv9qizj65xaz2rzx9r3xb5cj7f0zd1igj35508yyhkvg"
 }

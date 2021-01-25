@@ -44,10 +44,26 @@ atomicSwapImport(){
   $CLI import --chain $chain --to $toAccount $CLI_ARGS $NODE_ARGS
 }
 
+deposit(){
+  amount=$1
+  toAccount=$2
+  if [ "$#" -eq 3 ]; then
+    assetID="--assetID $3"
+  else
+    assetID=""
+  fi
+  $CLI deposit --amount "$amount" --to $toAccount $assetID $CLI_ARGS $NODE_ARGS
+}
+
 transfer(){
   amount=$1
   toAccount=$2
-  $CLI transfer --amount "$amount" --to $toAccount $CLI_ARGS $NODE_ARGS
+  if [ "$#" -eq 3 ]; then
+    assetID="--assetID $3"
+  else
+    assetID=""
+  fi
+  $CLI transfer --amount "$amount" --to $toAccount $assetID $CLI_ARGS $NODE_ARGS
 }
 
 assertTest(){
@@ -101,18 +117,23 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
 
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
 
-  # C-chain transfer
-  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
-  assertTest "$(getBalanceCChain "$C_CHAIN_RECIEVE_ADDRESS")" == "0 WEI"
+  # C-chain native transfer
   C_CHAIN_TRANSFER_TARGET_ADDRESS=$(getNewReceiveAddressCChain)
   echo "C_CHAIN_TRANSFER_TARGET_ADDRESS: $C_CHAIN_TRANSFER_TARGET_ADDRESS"
-
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "0 WEI"
   transfer "10 nAVAX" "$C_CHAIN_TRANSFER_TARGET_ADDRESS"
   sleep 8
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "10 WEI"
 
+  # C-chain assetCall
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
+  transfer "0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
+  sleep 8
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
+  deposit  "0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
+  sleep 8
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
 

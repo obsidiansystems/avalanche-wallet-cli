@@ -1,5 +1,5 @@
 setupLedgerFromFaucet(){
-  $FAUCET fund-ledger 20000000 $SPECULOS_ARGS $NODE_ARGS
+  $FAUCET fund-ledger 20000000000000 $SPECULOS_ARGS $NODE_ARGS
 }
 
 getNewReceiveAddressXChain(){
@@ -68,7 +68,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
 
   setupLedgerFromFaucet
 
-  [[ "$(getBalanceXChain)" == "100000000 nAVAX" ]]
+  [[ "$(getBalanceXChain)" == "100000000000000 nAVAX" ]]
 
   echo "Starting Atomic Swap Tests"
 
@@ -85,11 +85,11 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS --assetID $ANT_A")" == "0"
   echo "atomicSwapExport"
 
-  $CLI export --amount "40000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS
-  # # atomicSwapExport "40000000 nAVAX" "X" $C_CHAIN_RECIEVE_ADDRESS
+  $CLI export --amount "40000000000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS
+  # # atomicSwapExport "40000000000000 nAVAX" "X" $C_CHAIN_RECIEVE_ADDRESS
   sleep 8
 
-  assertTest "$(getBalanceXChain)" == "59000000 nAVAX"
+  assertTest "$(getBalanceXChain)" == "59999999000000 nAVAX"
 
   assertTest "$(getBalanceCChain)" == "0 nAVAX"
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
@@ -99,13 +99,15 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
 
   sleep 8
 
-  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000 WEI"
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
 
   # C-chain transfer
-  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000 WEI"
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
   assertTest "$(getBalanceCChain "$C_CHAIN_RECIEVE_ADDRESS")" == "0 WEI"
   C_CHAIN_TRANSFER_TARGET_ADDRESS=$(getNewReceiveAddressCChain)
   echo "C_CHAIN_TRANSFER_TARGET_ADDRESS: $C_CHAIN_TRANSFER_TARGET_ADDRESS"
+
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "0 WEI"
   transfer "10 nAVAX" "$C_CHAIN_TRANSFER_TARGET_ADDRESS"
   sleep 8

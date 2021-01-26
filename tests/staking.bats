@@ -61,19 +61,19 @@ delegate() {
   P_CHAIN_ADDRESS=$(getNewReceiveAddressPChain)
 
   atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   atomicSwapImport $P_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalancePChain)" == "9999998000000 nAVAX" ]]
 
   NODE_ID=$(getNodeID)
 
   validate 4000AVAX 3.14159 $NODE_ID
-  sleep 8
+  sleep 1.5
 
   delegate 4999.996AVAX $NODE_ID
-  sleep 8
+  sleep 1.5
 
 }

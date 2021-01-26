@@ -31,13 +31,13 @@ transfer(){
   [[ "$(getBalance)" == "375000000 nAVAX" ]]
 
   transfer "3000000 nAVAX" $FAKE_USER
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalance)" == "371000000 nAVAX" ]]
 
   # Transfer the rest away so we are clean for other tests
   transfer "370000000 nAVAX" $FAKE_USER
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalance)" == "0 nAVAX" ]]
 }

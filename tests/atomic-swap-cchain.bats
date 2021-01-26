@@ -103,7 +103,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
 
   $CLI export --amount "40000000000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS
   # # atomicSwapExport "40000000000000 nAVAX" "X" $C_CHAIN_RECIEVE_ADDRESS
-  sleep 8
+  sleep 1.5
 
   assertTest "$(getBalanceXChain)" == "59999999000000 nAVAX"
 
@@ -113,7 +113,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   echo "atomicSwapImport"
   $CLI import --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" --dest "$C_CHAIN_ADDRESS" $CLI_ARGS $NODE_ARGS
 
-  sleep 8
+  sleep 1.5
 
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
 
@@ -123,35 +123,35 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "40000000000000000000000 WEI"
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "0 WEI"
   transfer "10 nAVAX" "$C_CHAIN_TRANSFER_TARGET_ADDRESS"
-  sleep 8
+  sleep 1.5
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "10 WEI"
 
   # C-chain assetCall
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
   transfer "0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
-  sleep 8
+  sleep 1.5
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
   deposit  "0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
-  sleep 8
+  sleep 1.5
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
 
   echo "export c"
   atomicSwapExport "2000000 nAVAX" "C" $X_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
 
   atomicSwapImport "C" $X_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalanceXChain)" == "6000000 nAVAX" ]]
 
   # Set the balance to zero for other tests
 
   atomicSwapExport "5000000 nAVAX" "X" $C_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalanceXChain)" == "0 nAVAX" ]]
 

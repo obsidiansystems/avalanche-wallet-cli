@@ -59,33 +59,33 @@ atomicSwapImport(){
   [[ "$(getBalancePChain)" == "0 nAVAX" ]]
 
   atomicSwapExport "4000000 nAVAX" "X" $P_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalanceXChain)" == "5000000 nAVAX" ]]
 
   [[ "$(getBalancePChain)" == "0 nAVAX" ]]
 
   atomicSwapImport "X" $P_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalancePChain)" == "3000000 nAVAX" ]]
 
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)
 
   atomicSwapExport "2000000 nAVAX" "P" $X_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalancePChain)" == "0 nAVAX" ]]
 
   atomicSwapImport "P" $X_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalanceXChain)" == "6000000 nAVAX" ]]
 
   # Set the balance to zero for other tests
 
   atomicSwapExport "5000000 nAVAX" "X" $P_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalanceXChain)" == "0 nAVAX" ]]
 

@@ -5,7 +5,7 @@ DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )
 export CLI="$DIR/cli/cli.js"
 export FAUCET="$DIR/cli/faucet.js"
 
-$DIR/node_modules/.bin/eslint $CLI
+yarn run eslint $CLI
 
 TEST_DIR=$DIR/tests
 

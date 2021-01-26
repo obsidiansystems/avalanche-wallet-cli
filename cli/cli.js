@@ -366,6 +366,7 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
   var pkhs = [];
   var change_addresses = [];
   var change_pkhs = [];
+  var address_to_path = {};
 
   await traverse_used_keys(ava, chain_objects, hdkey, batch => {
     utxoset = utxoset.union(batch.utxoset);
@@ -373,6 +374,7 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
     pkhs = pkhs.concat(batch.non_change.pkhs);
     change_addresses = change_addresses.concat(batch.change.addresses);
     change_pkhs = change_pkhs.concat(batch.change.pkhs);
+    Object.assign(address_to_path, batch.address_to_path);
   });
 
   // Go backwards through the generated addresses to find the last unused address
@@ -385,7 +387,9 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
     if (utxoids === undefined && change_utxoids === undefined) {
       last_unused = {
         non_change: addresses[i],
+        non_change_path: address_to_path[addresses[i]],
         change: change_addresses[i],
+        change_path: address_to_path[change_addresses[i]],
       };
     } else {
       break;
@@ -640,11 +644,16 @@ async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to
 
 /* Adapted from avm/tx.ts for class BaseTx */
 async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, ledgerSign) {
+
   let path_suffixes = new Set();
   for (let i = 0; i < inputs.length; i++) {
     const sigidxs = inputs[i].getInput().getSigIdxs();
     for (let j = 0; j < sigidxs.length; j++) {
-      path_suffixes.add(addr_to_path[pkh_to_some_address(ava, chain_objects.alias, sigidxs[j].getSource())]);
+      const addr = pkh_to_some_address(ava, chain_objects.alias, sigidxs[j].getSource());
+      if (!Object.prototype.hasOwnProperty.call(addr_to_path, addr)) {
+        console.error("Can't find path for", addr)
+      }
+      path_suffixes.add(addr_to_path[addr]);
     }
   }
 
@@ -670,7 +679,7 @@ async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, led
 
 async function sign_with_ledger(ledgerSign, txbuff, path_suffixes) {
   const path_suffixes_arr = Array.from(path_suffixes);
-  console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), "with paths", path_suffixes_arr);
+  console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), `(${txbuff.length} bytes)`, "with paths", path_suffixes_arr);
   requestLedgerAccept();
   const path_suffix_to_sig = await ledgerSign(
     BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), txbuff
@@ -970,6 +979,7 @@ program
   .description("Export AVAX to another chain")
   .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
   .requiredOption("--to <account>", "Recipient account")
+  .option("--path <account>", "Sender Path", "0/0")
   .add_chain_option()
   .add_node_option()
   .add_device_option()
@@ -982,37 +992,133 @@ program
     const source_chain_alias = options.chain;
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
     const amount = parseAmountWithError(options.amount);
-    return await withLedger(options, async ledger => {
+    return await withLedger(options, async (ledger, ethApp) => {
       const version = await getParsedVersion(ledger);
       const signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_alias, "export"]]) ? sign_UnsignedTx : signHash_UnsignedTx;
 
-      if (automationEnabled(options)) flowAccept(ledger.transport);
-      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+      var txid
+      if (source_chain_alias === AvaJS.utils.CChainAlias) {
+        console.log("cchain export to", toAddress, destination_chain_objects.addrHex)
 
-      console.error("Discovering addresses...");
-      const prepared = await prepare_for_transfer(ava, source_chain_objects, root_key);
+        if (automationEnabled(options)) flowAccept(ledger.transport);
+        const path = options.path
+        const fromPk = await ethApp.getAddress(AVA_BIP32_PREFIX + "/" + path);
 
-      const fromAddresses = prepared.addresses;
+        const fromAddressHex = ledgerAddressWorkaround(fromPk);
+        const fromAddressBech = "C-" + bech32.encode(ava.getHRP(), bech32.toWords( hdkey_to_pkh({publicKey: Buffer.from(fromPk.publicKey, "hex")})));
 
-      console.error("Getting new change address...");
-      // TODO don't loop again. get this from prepare_for_transfer for the change addresses
-      const changeAddress = (await get_first_unused_address(ava, source_chain_objects, root_key)).change;
+        // TODO: get this from options.amount
+        // const assetId = await destination_chain_objects.api.getAVAXAssetID()
+        const assetDesc = await destination_chain_objects.api.getAssetDescription('AVAX');
 
-      console.error("Building TX...");
 
-      const unsignedExportTx = await source_chain_objects.api.buildExportTx(
-        prepared.utxoset,
-        amount,
-        destination_chain_id,
-        [toAddress],
-        fromAddresses,
-        [changeAddress],
-      );
-      console.error("Unsigned Export TX:");
-      console.error(unsignedExportTx.toBuffer().toString("hex"));
-      const signedTx = await signFunction(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, changeAddress, ledger, options);
-      console.error("Issuing TX...");
-      const txid = await source_chain_objects.api.issueTx(signedTx);
+        const rpc = get_network_node(options).path('/ext/bc/C/rpc');
+        const web3 = new Web3(rpc.toString());
+        const nonce = await web3.eth.getTransactionCount(fromAddressHex);
+        const unsignedExportTx = await source_chain_objects.api.buildExportTx(
+            amount,
+            BinTools.cb58Encode(assetDesc.assetID),
+            destination_chain_id,
+            fromAddressHex,
+            fromAddressBech,
+            [toAddress],
+            nonce
+          );
+
+        console.error("Unsigned Export TX:");
+        console.error(unsignedExportTx.toBuffer().toString("hex"));
+
+
+        // const changeAddress = "bogusChangeAddress"; // unused in this codepath probably.
+        const addr_to_path = {}; // XXX
+        addr_to_path[fromAddressBech] = options.path;
+
+        const txbuff = unsignedExportTx.toBuffer();
+
+        const hash = Buffer.from(createHash('sha256').update(txbuff).digest());
+        const chain_objects = source_chain_objects;
+        const inputs = unsignedExportTx.transaction.getInputs();
+
+        let path_suffixes = new Set();
+        for (let i = 0; i < inputs.length; i++) {
+          const sigidxs = inputs[i].getSigIdxs();
+          for (let j = 0; j < sigidxs.length; j++) {
+            const addr = pkh_to_some_address(ava, chain_objects.alias, sigidxs[j].getSource());
+            path_suffixes.add(addr_to_path[addr]);
+          }
+        }
+
+        const path_suffix_to_sig_map =
+          getSupportsUnhashedSigningForVersion(version, [[destination_chain_alias, "export"]])
+          ? await sign_with_ledger(async (prefix, suffixes, buff) => {
+              if (automationEnabled(options)) flowAccept(ledger.transport);
+              const result = await ledger.signHash(prefix, suffixes, buff);
+              return result
+            }, hash, path_suffixes)
+          : await sign_with_ledger(async (prefix, suffixes, buff) => {
+              if (automationEnabled(options))
+                await flowMultiPrompt(ledger.transport);
+              let changePath = null;
+              // if (changeAddress != null)
+              //   changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
+              const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
+              return result.signatures;
+            }, txbuff, path_suffixes)
+          ;
+
+        const sigs = [];
+        for (let i = 0; i < inputs.length; i++) {
+          const cred = chain_objects.vm.SelectCredentialClass(inputs[i].getCredentialID());
+          const sigidxs = inputs[i].getSigIdxs();
+          for (let j = 0; j < sigidxs.length; j++) {
+            const path_suffix = addr_to_path[pkh_to_some_address(ava, chain_objects.alias, sigidxs[j].getSource())];
+            const signval = path_suffix_to_sig_map.get(path_suffix);
+            if (signval === undefined) throw "Unable to find signature for " + path_suffix;
+            const sig = new AvaJS.common.Signature();
+            sig.fromBuffer(signval);
+            cred.addSignature(sig);
+          }
+          sigs.push(cred);
+        }
+
+        const signedTx = new source_chain_objects.vm.Tx(unsignedExportTx, sigs);
+        console.error("Issuing TX...");
+
+        txid = await source_chain_objects.api.issueTx(signedTx);
+
+        // */
+
+      } else {
+        if (automationEnabled(options)) flowAccept(ledger.transport);
+        const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+
+        console.error("Discovering addresses...");
+        const prepared = await prepare_for_transfer(ava, source_chain_objects, root_key);
+
+        const fromAddresses = prepared.addresses;
+
+        console.error("Getting new change address...");
+        // TODO don't loop again. get this from prepare_for_transfer for the change addresses
+        const changeAddress = (await get_first_unused_address(ava, source_chain_objects, root_key)).change;
+
+        console.error("Building TX...");
+
+        const unsignedExportTx = await source_chain_objects.api.buildExportTx(
+          prepared.utxoset,
+          amount,
+          destination_chain_id,
+          [toAddress],
+          fromAddresses,
+          [changeAddress],
+        );
+
+        console.error("Unsigned Export TX:");
+        console.error(unsignedExportTx.toBuffer().toString("hex"));
+        const signedTx = await signFunction(ava, source_chain_objects, unsignedExportTx, prepared.addr_to_path, changeAddress, ledger, options);
+        console.error("Issuing TX...");
+        txid = await source_chain_objects.api.issueTx(signedTx);
+
+      }
       console.log(txid);
     });
 });
@@ -1033,7 +1139,9 @@ program
     const source_chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
-      const signFunction = getSupportsUnhashedSigningForVersion(version, [[destination_chain_objects.alias, "import"]]) ? sign_UnsignedTxImport : signHash_UnsignedTxImport;
+      const signFunction = getSupportsUnhashedSigningForVersion(version,
+        [[destination_chain_objects.alias, "import"], [source_chain_objects.alias, "export"]]
+      ) ? sign_UnsignedTxImport : signHash_UnsignedTxImport;
 
       const source_chain_id = source_chain_objects.api.getBlockchainID();
 
@@ -1049,8 +1157,6 @@ program
       const destAddress = options.dest !== undefined
         ? parseAddress(options.dest)(ava)
         : destination_chain_objects;
-
-      // const toAddressHex = bech32. toAddress.split("-")[1]
 
       const unsignedImportTx = await ((destination_chain_objects.alias == "C") // It seems like the evm api wants to have its arguments in a different order.
             ? destination_chain_objects.api.buildImportTx(

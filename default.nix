@@ -82,21 +82,29 @@ let
       LEDGER_APP="${if appElf != null then appElf else ""}";
     };
 
-    testScriptText = ''
-      #!${pkgs.bash}/bin/bash
-      export CLI='${cli-app-avalanche}/bin/avalanche-ledger-cli'
-      export FAUCET='${cli-app-avalanche}/bin/avalanche-ledger-faucet'
-      export TEST_CASES='${./tests}'
-    '' + builtins.readFile ./tests/tests.sh;
+    test-run = pkgs.stdenv.mkDerivation ({
+      name="test-properly";
+      buildInputs= (with pkgs; [
+        parallel utillinux iproute
+        curl jq
+        bats ncurses
+        cli-app-avalanche
+      ]);
+      src=./tests;
+      buildPhase=''
+        patchShebangs --build *.sh
+      '';
+      installPhase=''
+        ./test.sh | tee $out
+      '';
 
-    test-script = pkgs.writeScriptBin "test-script.sh" testScriptText;
-    test-run = pkgs.runCommand "test-run" ( { buildInputs = tools; } // testsEnvironment) ''
-      ${test-script}/bin/test-script.sh | tee $out
-    '';
+    } // testsEnvironment);
   };
 
 in {
   inherit cli-app-avalanche gecko shells snapPackage tools;
   tests-full = tests;
   tests = tests.test-run;
+
+
 }

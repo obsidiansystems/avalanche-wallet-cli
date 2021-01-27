@@ -1,16 +1,10 @@
 set -euo pipefail
 
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )
+TEST_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
-export CLI="$DIR/cli/cli.js"
-export FAUCET="$DIR/cli/faucet.js"
+export CLI=${CLI:-avalanche-ledger-cli}
+export FAUCET=${FAUCET:-avalanche-ledger-faucet}
 
-yarn run eslint $CLI
+XARGS="${XARGS:-xargs -n1}"
 
-TEST_DIR=$DIR/tests
-
-parallel --will-cite --timeout 600 "$TEST_DIR/unshared.sh" ::: \
-  "$TEST_DIR/atomic-swap.bats" \
-  "$TEST_DIR/basic-tests.bats" \
-  "$TEST_DIR/atomic-swap-cchain.bats" \
-  "$TEST_DIR/staking.bats"
+find "$TEST_DIR" -type f -name '*.bats' | $XARGS "$TEST_DIR/unshared.sh"

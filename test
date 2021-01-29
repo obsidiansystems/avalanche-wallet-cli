@@ -3,6 +3,9 @@
 #
 # This script is for convenient developer testing, skipping most of the
 # building done in default.nix.
+
+set -euo pipefail
+
 DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
 export CLI="$DIR/cli/cli.js"

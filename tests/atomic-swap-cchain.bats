@@ -12,7 +12,6 @@ getNewReceiveAddressPChain(){
 
 getNewReceiveAddressCChain(){
   $CLI get-new-receive-address --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
-  # $CLI get-address --chain C "0/0" $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
 getBalanceXChain(){
@@ -103,7 +102,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
 
   assertTest "$(getBalanceXChain)" == "59999999000000 nAVAX"
 
-  assertTest "$(getBalanceCChain)" == "0 nAVAX"
+  assertTest "$(getBalanceCChain)" == "0 WEI"
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
   assertTest "$(getBalanceCChain "$C_CHAIN_RECIEVE_ADDRESS")" == "0 WEI"
 
@@ -162,7 +161,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   sleep 1.5
 
   assertTest "$(getBalanceXChain)" == "0 nAVAX"
-  assertTest "$(getBalanceCChain)" == "0 nAVAX"
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
+  assertTest "$(getBalanceCChain)" == "0 WEI"
 
 }

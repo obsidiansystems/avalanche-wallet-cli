@@ -514,6 +514,7 @@ async function prepare_for_transfer(ava, chain_objects, hdkey) {
   }
 }
 
+
 program
   .command("get-balance [address]")
   .option("--list-addresses", "Display a breakdown for individual addresses")
@@ -524,34 +525,66 @@ program
   .add_assetID_option()
   .action(async (address, options) => {
     const ava = ava_js_from_options(options);
+    const getBalanceCChain = async (chain_objects, addrHex) => {
+      const rpc = get_network_node(options).path('/ext/bc/C/rpc');
+      const web3 = new Web3(rpc.toString());
+      if(options.assetID == undefined) {
+          const result = await web3.eth.getBalance(addrHex);
+          console.log(result + " WEI");
+      }
+      else {
+          const response = await chain_objects.api.callMethod (
+              "eth_getAssetBalance",
+              [chain_objects.addrHex, "latest", options.assetID],
+              "ext/bc/C/rpc");
+          const balance = parseInt(response.data.result, 16);
+          console.log(balance);
+      }
+    };
+
     if (address === undefined) {
       const chain_objects = make_chain_objects(ava, options.chain);
-      await withLedger(options, async (avalancheLedger) => {
+      await withLedger(options, async (avalancheLedger, evmLedger) => {
 
-        if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
-        const root_key = await get_extended_public_key(avalancheLedger, AVA_BIP32_PREFIX);
-        const balance = await sum_child_balances(ava, chain_objects, root_key, options.listAddresses);
-        console.log(balance.toString() + " nAVAX");
+        switch(chain_objects.alias) {
+          case "C": {
+            const path = AVA_BIP32_PREFIX + "/" + "0/0";
+            console.error("Getting public key for path", path);
+            requestLedgerAccept();
+            if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
+            const pk = await evmLedger.getAddress(path);
+            const defaultCChainAddress = "0x" + ledgerAddressWorkaround(pk);
+            await getBalanceCChain(chain_objects, defaultCChainAddress);
+            break;
+          }
+          default: {
+            if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
+            const root_key = await get_extended_public_key(avalancheLedger, AVA_BIP32_PREFIX);
+            const balance = await sum_child_balances(ava, chain_objects, root_key, options.listAddresses);
+            console.log(balance.toString() + " nAVAX");
+          }
+        }
       });
     } else {
       const chain_objects = parseAddress(address)(ava);
 
       switch(chain_objects.alias) {
         case "C": {
-          const rpc = get_network_node(options).path('/ext/bc/C/rpc');
-          const web3 = new Web3(rpc.toString());
-          if(options.assetID == undefined) {
-              const result = await web3.eth.getBalance(chain_objects.addrHex);
-              console.log(result + " WEI");
-          }
-          else {
-              const response = await chain_objects.api.callMethod (
-                  "eth_getAssetBalance",
-                  [chain_objects.addrHex, "latest", options.assetID],
-                  "ext/bc/C/rpc");
-              const balance = parseInt(response.data.result, 16);
-              console.log(balance);
-          }
+          getBalanceCChain(chain_objects, chain_objects.addrHex);
+          // const rpc = get_network_node(options).path('/ext/bc/C/rpc');
+          // const web3 = new Web3(rpc.toString());
+          // if(options.assetID == undefined) {
+          //     const result = await web3.eth.getBalance(chain_objects.addrHex);
+          //     console.log(result + " WEI");
+          // }
+          // else {
+          //     const response = await chain_objects.api.callMethod (
+          //         "eth_getAssetBalance",
+          //         [chain_objects.addrHex, "latest", options.assetID],
+          //         "ext/bc/C/rpc");
+          //     const balance = parseInt(response.data.result, 16);
+          //     console.log(balance);
+          // }
           break;
         }
         default: {
@@ -991,8 +1024,7 @@ program
     const destination_chain_id = destination_chain_objects.api.getBlockchainID();
 
     if (destination_chain_alias == options.chain) {
-      console.error("invalid --chain; source and destination must be different");
-      process.exit(1)
+      log_error_and_exit ("invalid --chain; source and destination must be different");
     }
 
     const source_chain_alias = options.chain;

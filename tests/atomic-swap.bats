@@ -26,10 +26,6 @@ getBalancePChain(){
   $CLI get-balance --chain P $CLI_ARGS $NODE_ARGS | tail -n 1
 }
 
-getBalanceCChain(){
-  $CLI get-balance --chain C $CLI_ARGS $NODE_ARGS | tail -n 1
-}
-
 atomicSwapExport(){
   amount=$1
   chain=$2
@@ -89,6 +85,6 @@ atomicSwapImport(){
 
   [[ "$(getBalanceXChain)" == "0 nAVAX" ]]
 
-  [[ "$(getBalanceCChain)" == "0 nAVAX" ]]
+  [[ "$(getBalancePChain)" == "0 nAVAX" ]]
 
 }

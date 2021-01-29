@@ -989,6 +989,12 @@ program
     const destination_chain_objects = parseAddress(toAddress)(ava);
     const destination_chain_alias = destination_chain_objects.alias;
     const destination_chain_id = destination_chain_objects.api.getBlockchainID();
+
+    if (destination_chain_alias == options.chain) {
+      console.error("invalid --chain; source and destination must be different");
+      process.exit(1)
+    }
+
     const source_chain_alias = options.chain;
     const source_chain_objects = make_chain_objects(ava, source_chain_alias);
     const amount = parseAmountWithError(options.amount);

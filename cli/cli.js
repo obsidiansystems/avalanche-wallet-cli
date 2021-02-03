@@ -108,7 +108,7 @@ function get_network_node(options) {
 commander.Command.prototype.add_chain_option = function() {
   return this
     .option("--chain <chain>"
-            , "chain [" + AvaJS.utils.XChainAlias + ", " + AvaJS.utils.PChainAlias + ", " + AvaJS.utils.CChainAlias + "]"
+            , "Chain [" + AvaJS.utils.XChainAlias + ", " + AvaJS.utils.PChainAlias + ", " + AvaJS.utils.CChainAlias + "]"
             , AvaJS.utils.XChainAlias);
 }
 
@@ -884,9 +884,9 @@ async function assetCall(ledgerEvm, options, web3, addr, assetID, amount, should
 
 program
   .command("deposit")
-  .description("Deposit ANT into ARC-20")
+  .description("Deposit an ANT into an ARC-20")
   .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
-  .requiredOption("--to <account>", "Recipient account")
+  .requiredOption("--to <account>", "ARC-20 address")
   .add_node_option()
   .add_device_option()
   .add_assetID_option()
@@ -905,9 +905,9 @@ program
 
 program
   .command("transfer")
-  .description("Transfer AVAX between addresses")
-  .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
-  .requiredOption("--to <account>", "Recipient account")
+  .description("Transfer assets between addresses")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5' or '100000n'. If units are missing, whole units are assumed.")
+  .requiredOption("--to <account>", "Receiving address")
   .add_node_option()
   .add_device_option()
   .add_assetID_option()
@@ -1011,7 +1011,7 @@ program
   .command("export")
   .description("Export AVAX to another chain")
   .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5 AVAX' or '100000 nAVAX'. If units are missing, AVAX is assumed.")
-  .requiredOption("--to <account>", "Recipient account")
+  .requiredOption("--to <account>", "Recipient's address")
   .option("--path <account>", "Sender Path", "0/0")
   .add_chain_option()
   .add_node_option()
@@ -1164,8 +1164,8 @@ program
 program
   .command("import")
   .description("Import AVAX from a different chain")
-  .requiredOption("--to <account>", "Recipient account")
-  .option("--dest <account>", "Recipient account")
+  .requiredOption("--to <account>", "Recipient's address")
+  .option("--dest <account>", "Recipient's change address")
   .add_chain_option()
   .add_node_option()
   .add_device_option()

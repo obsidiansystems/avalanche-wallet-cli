@@ -94,7 +94,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   echo "C_CHAIN_ADDRESS=${C_CHAIN_ADDRESS}"
 
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
-  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS --assetID $ANT_A")" == "0"
+  assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS --assetID $ANT_A")" == "0x0"
   echo "atomicSwapExport X->C"
 
   $CLI export --amount "40000000000000 nAVAX" --chain "X" --to "$C_CHAIN_RECIEVE_ADDRESS" $CLI_ARGS $NODE_ARGS
@@ -126,13 +126,13 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   sleep 1.5
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "10 WEI"
   # C-chain assetCall
-  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
-  transfer "0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0x0"
+  transfer "0x0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
   sleep 1.5
-  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
-  deposit  "0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0x0"
+  deposit  "0x0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"
   sleep 1.5
-  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0"
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0x0"
 
   echo "atomicSwapImport C->X"
   X_CHAIN_ADDRESS=$(getNewReceiveAddressXChain)

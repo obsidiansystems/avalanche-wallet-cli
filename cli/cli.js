@@ -549,8 +549,7 @@ program
               "eth_getAssetBalance",
               [chain_objects.addrHex, "latest", options.assetID],
               "ext/bc/C/rpc");
-          const balance = parseInt(response.data.result, 16);
-          console.log(balance);
+          console.log(response.data.result);
       }
     };
 
@@ -744,6 +743,8 @@ function parseAmountWithError(str) {
 // reason. Defaults to AVAX if no units are given.
 function parseAmount(str) {
   if (str.length === 0) return false;
+  if ((/0x[0-9a-fA-F]+/).test(str))
+      return parseInt(str, 16);
   var pastDecimal = false;
   var integerPart = "";
   var fractionalPart = "";

@@ -52,7 +52,7 @@ delegate() {
 
 # bats will run each test multiple times, so to get around this (for the time being) we
 # run everything in a single test case
-@test "Ledger app scenario 1" {
+@test "Staking" {
 
   setupLedgerFromFaucet
 
@@ -61,21 +61,19 @@ delegate() {
   P_CHAIN_ADDRESS=$(getNewReceiveAddressPChain)
 
   atomicSwapExport "9999.999 AVAX" $P_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
   atomicSwapImport $P_CHAIN_ADDRESS
-  sleep 8
+  sleep 1.5
 
-  # [[ "$(getBalancePChain)" == "9999998000000 nAVAX" ]]
-  # FIXME: We have some crosstalk in the tests, and there's a balance left over from the atomic swap tests.
-  [[ "$(getBalancePChain)" ==  "10000003000000 nAVAX" ]]
+  [[ "$(getBalancePChain)" == "9999998000000 nAVAX" ]]
 
   NODE_ID=$(getNodeID)
 
   validate 4000AVAX 3.14159 $NODE_ID
-  sleep 8
+  sleep 1.5
 
   delegate 4999.996AVAX $NODE_ID
-  sleep 8
+  sleep 1.5
 
 }

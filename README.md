@@ -43,3 +43,4 @@ Once installed, the CLI will be available using:
 ```bash
 avalanche-cli
 ```
+ 

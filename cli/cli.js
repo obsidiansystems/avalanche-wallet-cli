@@ -318,17 +318,18 @@ program
     const chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async (avalanche, evm) => {
       // BIP32: m / purpose' / coin_type' / account' / change / address_index
-      path = AVA_BIP32_PREFIX + "/" + path;
       console.error("Getting public key for path", path);
       requestLedgerAccept();
 
       if (automationEnabled(options)) flowAccept(avalanche.transport);
 
       if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+        path = ETH_BIP32_PREFIX + "/" + path;
         const pk = await evm.getAddress(path, true, true);
         console.log("C-0x" + ledgerAddressWorkaround(pk));
       }
       else {
+        path = AVA_BIP32_PREFIX + "/" + path;
         const pubk_hash = await avalanche.getWalletAddress(path, options.network);
         console.log(pkh_to_some_address(ava, chain_objects.alias, pubk_hash));
       }
@@ -548,7 +549,7 @@ program
 
         switch(chain_objects.alias) {
           case "C": {
-            const path = AVA_BIP32_PREFIX + "/" + "0/0";
+            const path = ETH_BIP32_PREFIX + "/" + "0/0";
             console.error("Getting public key for path", path);
             requestLedgerAccept();
             if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
@@ -606,12 +607,19 @@ program
   .add_node_option()
   .add_device_option()
   .add_chain_option()
-  .action(async options => {
+  .action(async options, prefix => {
+
     const ava = ava_js_from_options(options);
     const chain_objects = make_chain_objects(ava, options.chain);
+    if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+      prefix = ETH_BIP32_PREFIX;
+    }
+    else {
+      prefix = AVA_BIP32_PREFIX; 
+    }
     return await withLedger(options, async ledger => {
       if (automationEnabled(options)) flowAccept(ledger.transport);
-      const root_key = await get_extended_public_key(ledger, AVA_BIP32_PREFIX);
+      const root_key = await get_extended_public_key(ledger, prefix);
       let result = await get_first_unused_address(ava, chain_objects, root_key, true);
       console.log(result.non_change);
     });
@@ -621,12 +629,19 @@ program
 async function sign_UnsignedTx(ava, chain_objects, unsignedTx, addr_to_path, changeAddress, ledger, options) {
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
+
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.ins, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
+    if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+      prefix = ETH_BIP32_PREFIX;
+    }
+    else {
+      prefix = AVA_BIP32_PREFIX;
+    }
     if (automationEnabled(options))
       await flowMultiPrompt(ledger.transport);
     let changePath = null;
     if (changeAddress != null)
-      changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
+      changePath = BipPath.fromString(prefix + "/" + addr_to_path[changeAddress]);
     const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
   });
@@ -650,11 +665,17 @@ async function sign_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to_pat
   const txbuff = unsignedTx.toBuffer();
   const baseTx = unsignedTx.transaction;
   const sigs = await sign_BaseTx(ava, chain_objects, baseTx.importIns, txbuff, addr_to_path, async (prefix, suffixes, buff) => {
+    if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+      prefix = ETH_BIP32_PREFIX;
+    }
+    else {
+      prefix = AVA_BIP32_PREFIX;
+    }
     if (automationEnabled(options))
       await flowMultiPrompt(ledger.transport);
     let changePath = null;
     if (changeAddress != null)
-      changePath = BipPath.fromString(AVA_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
+      changePath = BipPath.fromString(prefix + "/" + addr_to_path[changeAddress]);
     const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
     return result.signatures;
   });
@@ -677,7 +698,13 @@ async function signHash_UnsignedTxImport(ava, chain_objects, unsignedTx, addr_to
 
 /* Adapted from avm/tx.ts for class BaseTx */
 async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, ledgerSign) {
-
+  const prefix //= null
+  if (chain_objects.alias == AvaJS.utils.CChainAlias) {
+    prefix = ETH_BIP32_PREFIX;
+  }
+  else {
+    prefix = AVA_BIP32_PREFIX; 
+  }
   let path_suffixes = new Set();
   for (let i = 0; i < inputs.length; i++) {
     const sigidxs = inputs[i].getInput().getSigIdxs();
@@ -710,12 +737,12 @@ async function sign_BaseTx(ava, chain_objects, inputs, txbuff, addr_to_path, led
   return sigs;
 }
 
-async function sign_with_ledger(ledgerSign, txbuff, path_suffixes) {
+async function sign_with_ledger(ledgerSign, txbuff, path_suffixes, prefix) {
   const path_suffixes_arr = Array.from(path_suffixes);
   console.error("Signing transaction", txbuff.toString('hex').toUpperCase(), `(${txbuff.length} bytes)`, "with paths", path_suffixes_arr);
   requestLedgerAccept();
   const path_suffix_to_sig = await ledgerSign(
-    BipPath.fromString(AVA_BIP32_PREFIX), path_suffixes_arr.map(x => BipPath.fromString(x, false)), txbuff
+    BipPath.fromString(prefix), path_suffixes_arr.map(x => BipPath.fromString(x, false)), txbuff
   ).catch(log_error_and_exit);
 
   console.error("Signatures:");
@@ -828,7 +855,7 @@ async function getParsedVersion(ledger) {
 }
 
 async function makeLedgerSignedTxEVM(ledgerEvm, options, web3, partialTxParams) {
-  const path = AVA_BIP32_PREFIX + "/0/0"; // TODO: Use ETH?
+  const path = ETH_BIP32_PREFIX + "/0/0"; // TODO: Use ETH?
   const pk = await ledgerEvm.getAddress(path, true, true);
   const address = ledgerAddressWorkaround(pk);
   const nonce = "0x" + (await web3.eth.getTransactionCount(address)).toString(16);
@@ -1040,7 +1067,7 @@ program
 
         if (automationEnabled(options)) flowAccept(ledger.transport);
         const path = options.path
-        const fromPk = await ethApp.getAddress(AVA_BIP32_PREFIX + "/" + path);
+        const fromPk = await ethApp.getAddress(ETH_BIP32_PREFIX + "/" + path);
 
         const fromAddressHex = ledgerAddressWorkaround(fromPk);
         const fromAddressBech = "C-" + bech32.encode(ava.getHRP(), bech32.toWords( hdkey_to_pkh({publicKey: Buffer.from(fromPk.publicKey, "hex")})));

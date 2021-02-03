@@ -906,7 +906,7 @@ program
 program
   .command("transfer")
   .description("Transfer assets between addresses")
-  .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5' or '100000n'. If units are missing, whole units are assumed.")
+  .requiredOption("--amount <amount>", "Amount to transfer, e.g. '1.5', '100'")
   .requiredOption("--to <account>", "Receiving address")
   .add_node_option()
   .add_device_option()

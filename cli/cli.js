@@ -529,7 +529,6 @@ async function prepare_for_transfer(ava, chain_objects, hdkey) {
 
 program
   .command("get-balance [address]")
-  .option("--list-addresses", "Display a breakdown for individual addresses")
   .description("Get the AVAX balance of this wallet or a particular address")
   .add_node_option()
   .add_device_option()
@@ -572,7 +571,7 @@ program
           default: {
             if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
             const root_key = await get_extended_public_key(avalancheLedger, bip32Prefix);
-            const balance = await sum_child_balances(ava, chain_objects, root_key, options.listAddresses);
+            const balance = await sum_child_balances(ava, chain_objects, root_key);
             console.log(balance.toString() + " nAVAX");
           }
         }

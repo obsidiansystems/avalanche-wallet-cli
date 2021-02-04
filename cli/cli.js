@@ -723,7 +723,25 @@ async function sign_with_ledger(ledgerSign, prefix, txbuff, path_suffixes) {
   return path_suffix_to_sig;
 }
 
-function parseAmountWithError(str) {
+function parseInteger(str) {
+    if (/^0x[0-9a-fA-F]+$/.test(str))
+        return parseInt(str, 16);
+    if (/^[0-9]+$/.test(str))
+        return parseInt(str, 10);
+    return false;
+}
+
+function parseAmountWithError(str, forceInteger) {
+  if (forceInteger) {
+      const amount = parseInteger(str);
+      if (amount === false) {
+          console.error("Couldn't parse the given amount.");
+          console.error("Amount must be an integer");
+          process.exit(1);
+      }
+      return amount;
+  }
+
   const amount = parseAmount(str);
   if (amount === false) {
     console.error("Couldn't parse the given amount.");
@@ -742,8 +760,6 @@ function parseAmountWithError(str) {
 // reason. Defaults to AVAX if no units are given.
 function parseAmount(str) {
   if (str.length === 0) return false;
-  if ((/0x[0-9a-fA-F]+/).test(str))
-      return parseInt(str, 16);
   var pastDecimal = false;
   var integerPart = "";
   var fractionalPart = "";
@@ -894,12 +910,13 @@ program
       const web3 = new Web3(rpc.toString());
       const ava = ava_js_from_options(options);
       const chain_objects = parseAddress(options.to)(ava);
-      const amount = parseAmountWithError(options.amount);
+      const amount = parseAmountWithError(options.amount, true);
 
       if (chain_objects.alias != AvaJS.utils.CChainAlias)
           log_error_and_exit("Can only deposit on C-chain addresses")
 
-      await assetCall(evm, options, web3, chain_objects.addrHex.slice(2), options.assetID, amount, true);
+      const result = await assetCall(evm, options, web3, chain_objects.addrHex.slice(2), options.assetID, amount, true);
+      console.log(result);
   }))
 
 program
@@ -919,7 +936,7 @@ program
       log_error_and_exit("Transfers are only possible on chains "
                          + supportedChains.join(" & ")
                          + ". If you are looking to transfer between chains, see `export`.")
-    const amount = parseAmountWithError(options.amount);
+    const amount = parseAmountWithError(options.amount, options.assetID != undefined);
 
     return await withLedger(options, async (avalanche, evm) => {
       const rpc = get_network_node(options).path('/ext/bc/C/rpc');
@@ -938,8 +955,10 @@ program
             const signedTxHex = await makeLedgerSignedTxEVM(evm, options, web3, txParams);
             await web3.eth.sendSignedTransaction('0x' + signedTxHex);
           }
-          else
-              await assetCall(evm, options, web3, chain_objects.addrHex.slice(2), options.assetID, amount, false);
+          else {
+              const result = await assetCall(evm, options, web3, chain_objects.addrHex.slice(2), options.assetID, amount, false);
+              console.log(result);
+          }
       } else {
           if (automationEnabled(options)) flowAccept(avalanche.transport);
           const version = await getParsedVersion(avalanche);

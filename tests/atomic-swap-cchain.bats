@@ -94,6 +94,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   echo "C_CHAIN_ADDRESS=${C_CHAIN_ADDRESS}"
 
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS")" == "0 WEI"
+  assertTest "$(getBalanceCChain "--assetID $ANT_A")" == "0x0"
   assertTest "$(getBalanceCChain "$C_CHAIN_ADDRESS --assetID $ANT_A")" == "0x0"
   echo "atomicSwapExport X->C"
 

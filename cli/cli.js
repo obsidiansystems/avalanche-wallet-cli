@@ -536,7 +536,7 @@ program
   .add_assetID_option()
   .action(async (address, options) => {
     const ava = ava_js_from_options(options);
-    const getBalanceCChain = async (chain_objects, addrHex) => {
+    const getBalanceCChain = async (api, addrHex) => {
       const rpc = get_network_node(options).path('/ext/bc/C/rpc');
       const web3 = new Web3(rpc.toString());
       if(options.assetID == undefined) {
@@ -544,9 +544,9 @@ program
           console.log(result + " WEI");
       }
       else {
-          const response = await chain_objects.api.callMethod (
+          const response = await api.callMethod (
               "eth_getAssetBalance",
-              [chain_objects.addrHex, "latest", options.assetID],
+              [addrHex, "latest", options.assetID],
               "ext/bc/C/rpc");
           console.log(response.data.result);
       }
@@ -565,7 +565,7 @@ program
             if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
             const pk = await evmLedger.getAddress(path);
             const defaultCChainAddress = "0x" + ledgerAddressWorkaround(pk);
-            await getBalanceCChain(chain_objects, defaultCChainAddress);
+            await getBalanceCChain(chain_objects.api, defaultCChainAddress);
             break;
           }
           default: {
@@ -581,7 +581,7 @@ program
 
       switch(chain_objects.alias) {
         case "C": {
-          getBalanceCChain(chain_objects, chain_objects.addrHex);
+          getBalanceCChain(chain_objects.api, chain_objects.addrHex);
           break;
         }
         default: {

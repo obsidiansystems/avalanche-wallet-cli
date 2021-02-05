@@ -474,7 +474,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
 
 // Given a hdkey (at the account level), sum the UTXO balances
 // under that key.
-async function sum_child_balances(ava, chain_objects, hdkey) {
+async function sum_child_balances(ava, chain_objects, hdkey, assetID) {
   var balance = new BN(0);
 
   await traverse_used_keys(ava, chain_objects, hdkey, async batch => {
@@ -482,7 +482,9 @@ async function sum_child_balances(ava, chain_objects, hdkey) {
     for (const [pkhIgnored, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
       var bal = new BN(0);
       for (const utxoid of Object.keys(utxoids)) {
-        bal = bal.add(batch.utxoset.utxos[utxoid].getOutput().getAmount());
+        const utxo = batch.utxoset.utxos[utxoid];
+        if(utxo.assetid.equals(assetID))
+            bal = bal.add(utxo.getOutput().getAmount());
       }
       balance = balance.add(bal);
     }
@@ -565,7 +567,10 @@ program
           default: {
             if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
             const root_key = await get_extended_public_key(avalancheLedger, bip32Prefix);
-            const balance = await sum_child_balances(ava, chain_objects, root_key);
+            const assetID = options.assetID == undefined
+                  ? await chain_objects.api.getAVAXAssetID()
+                  : options.assetID;
+            const balance = await sum_child_balances(ava, chain_objects, root_key, assetID);
             console.log(balance.toString() + " nAVAX");
           }
         }
@@ -579,9 +584,12 @@ program
           break;
         }
         default: {
+          const assetID = options.assetID == undefined
+                ? await chain_objects.api.getAVAXAssetID()
+                : options.assetID;
           const result
             = (await chain_objects.api.getBalance(address,
-                BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
+                BinTools.cb58Encode(assetID)
                 )).balance;
 
           console.log(result.toString(10, 0) + " nAVAX");

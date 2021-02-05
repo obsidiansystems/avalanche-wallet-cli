@@ -1,8 +1,8 @@
 {
   "owner": "ava-labs",
   "repo": "gecko",
-  "branch": "master",
+  "branch": "apricot",
   "private": false,
-  "rev": "a32576d0db27252cb5a9375961c402be251a8e27",
-  "sha256": "0p9r1pqghbgw34m59ysy1plljg49yq2dxvh3g7pi8sgq1f8k8rs8"
+  "rev": "99d1572629d5ec16a5125ab3f6d80004c938ea72",
+  "sha256": "10vysac2smsniffkm4h58ymwhmab86pi321sbg360v4szbvmnv1v"
 }

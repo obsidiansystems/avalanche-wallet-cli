@@ -719,9 +719,9 @@ async function sign_with_ledger(ledgerSign, prefix, txbuff, path_suffixes) {
 
 function parseInteger(str) {
     if (/^0x[0-9a-fA-F]+$/.test(str))
-        return parseInt(str, 16);
+        return new BN(str.slice(2), 16);
     if (/^[0-9]+$/.test(str))
-        return parseInt(str, 10);
+        return new BN(str, 10);
     return false;
 }
 

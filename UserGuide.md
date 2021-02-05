@@ -69,10 +69,10 @@
 
 `--node-id <node-id>`                       The NodeID to be used in validating
 
-`--dest <C-0x address>`                    Use for imports to C-Chain, eth-style address that can sign for `--to`
+`--dest <C-0x address>`                     Use for imports to C-Chain, eth-style address that can sign for `--to`
 
-`--assetID <uint256>`                       AssetID for C-Chain `transfer` of ANTs and `deposit`
-
+`--assetID <asset-id>`                      Identifies asset to use for transfers and deposists on C Chain. Base58Check encoded
+  
 `--device <deviceID>`                       Use the ID desired from `list-devices` 
 
 `--wallet <walletID>`                       Use a device with this wallet ID

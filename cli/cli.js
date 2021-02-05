@@ -90,7 +90,7 @@ commander.Command.prototype.add_node_option = function() {
 }
 
 commander.Command.prototype.add_assetID_option = function() {
-  return this.option("--assetID <uint256>", (x) => parseInt(x, 10));
+  return this.option("--assetID <asset-id>", "Identifies asset to use. Base58Check encoded");
 }
 
 const network_default_node = {

@@ -264,7 +264,7 @@ function requestLedgerAccept() {
 
 const program = new commander.Command();
 
-program.version("0.2.0");
+program.version("0.3.0");
 
 program
   .command("list-devices")

@@ -5,13 +5,13 @@ pkgs.buildGoModule {
 
   # The import being removed below messes up `go mod vendor` as it seems to be unnecessary
   preConfigure = ''
-     substituteInPlace ./wallets/chains/wallet.go --replace '"github.com/ava-labs/gecko/modules/chains/payments"' ""
+     substituteInPlace ./wallets/chains/wallet.go --replace '"github.com/ava-labs/avalanchego/modules/chains/payments"' ""
     '';
 
   overrideModAttrs = old: {
     # Do it here becuase the src passed into the dependency derivation does't get touched by the above preconfigure
     preConfigure = ''
-       substituteInPlace ./wallets/chains/wallet.go --replace '"github.com/ava-labs/gecko/modules/chains/payments"' ""
+       substituteInPlace ./wallets/chains/wallet.go --replace '"github.com/ava-labs/avalanchego/modules/chains/payments"' ""
       '';
   };
   buildPhase = ''

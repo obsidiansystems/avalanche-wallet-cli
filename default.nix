@@ -60,10 +60,10 @@ let
   };
 
   avash = import ./nix/avash.nix { inherit pkgs; };
-  gecko = import ./nix/avalanche.nix { inherit pkgs; };
+  avalanchego = import ./nix/avalanche.nix { inherit pkgs; };
   speculos = (import ./nix/dep/ledger-app-avalanche {}).speculos.speculos;
 
-  tools = [ avash gecko nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn jq curl ncurses parallel ]);
+  tools = [ avash avalanchego nodejs ] ++ (with pkgs; [ bats pkgconfig python libusb1 libudev.dev yarn jq curl ncurses parallel ]);
 
   shells = {
     test = pkgs.mkShell ({
@@ -73,8 +73,8 @@ let
 
   tests = rec {
     testsEnvironment = {
-      GECKO="${gecko}/bin/avalanche";
-      PLUGINS="${gecko}/plugins";
+      AVALANCHEGO="${avalanchego}/bin/avalanche";
+      PLUGINS="${avalanchego}/plugins";
       CERTS="${pkgs.copyPathToStore ./testnet/certs}";
       SPECULOS="${speculos}/bin/speculos";
       bats="${pkgs.bats}/bin/bats";
@@ -102,7 +102,7 @@ let
   };
 
 in {
-  inherit cli-app-avalanche gecko shells snapPackage tools;
+  inherit cli-app-avalanche avalanchego shells snapPackage tools;
   tests-full = tests;
   tests = tests.test-run;
 

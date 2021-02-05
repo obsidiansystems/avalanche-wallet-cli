@@ -2,8 +2,12 @@
 
 set -euo pipefail
 
+if [ ! -v TEST_CASES ]; then
+    TEST_CASES=$1;
+fi
+
 setupFaucet() {
-  curl -X POST --data '{
+  curl -s -X POST --data '{
       "jsonrpc":"2.0",
       "id"     :1,
       "method" :"keystore.createUser",
@@ -13,7 +17,7 @@ setupFaucet() {
         }
   }' -H 'content-type:application/json;' 127.0.0.1:${NODE_HTTP_PORT}/ext/keystore &&
 
-  curl --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
+  curl -s --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
     --header 'Content-Type: application/json' \
     --data-raw '{
         "jsonrpc": "2.0",
@@ -28,7 +32,7 @@ setupFaucet() {
 }
 
 setupFakeUser() {
-  curl -X POST --data '{
+  curl -s -X POST --data '{
       "jsonrpc":"2.0",
       "id"     :1,
       "method" :"keystore.createUser",
@@ -38,7 +42,7 @@ setupFakeUser() {
         }
   }' -H 'content-type:application/json;' 127.0.0.1:${NODE_HTTP_PORT}/ext/keystore &&
 
-  curl --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
+  curl -s --location --request POST localhost:${NODE_HTTP_PORT}/ext/bc/X \
     --header 'Content-Type: application/json' \
     --data-raw '{
         "jsonrpc": "2.0",
@@ -121,9 +125,7 @@ sleep 6
 setupFaucet
 setupFakeUser
 
-"$bats" -p "$TESTS_DIR"/*.bats
+bats -p "$TEST_CASES"
 bats_result=$?
-
-# "$TESTS_DIR"/basic-tests.sh
 
 exit $bats_result

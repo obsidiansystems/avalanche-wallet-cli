@@ -1,0 +1,16 @@
+#! /usr/bin/env nix-shell
+#! nix-shell default.nix -A shells.test -i bash
+#
+# This script is for convenient developer testing, skipping most of the
+# building done in default.nix.
+
+set -euo pipefail
+
+DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+
+export CLI="$DIR/cli/cli.js"
+export FAUCET="$DIR/cli/faucet.js"
+export XARGS="parallel --will-cite --timeout 600"
+
+yarn --offline run eslint $CLI
+"$DIR/tests/test.sh"

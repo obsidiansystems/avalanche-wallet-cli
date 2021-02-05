@@ -1,8 +1,8 @@
 {
   "owner": "ava-labs",
   "repo": "avalanchego",
-  "branch": "master",
+  "branch": "apricot",
   "private": false,
-  "rev": "caedf03e196ac85839a9822f669ec329bd349c2c",
-  "sha256": "0fibj8l53v2hbipvgr8bsnkcyrrvk8ynk15jfiks5hc2qfqnh2k0"
+  "rev": "99d1572629d5ec16a5125ab3f6d80004c938ea72",
+  "sha256": "10vysac2smsniffkm4h58ymwhmab86pi321sbg360v4szbvmnv1v"
 }

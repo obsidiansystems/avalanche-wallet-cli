@@ -21,7 +21,7 @@ transfer(){
 
 # bats will run each test multiple times, so to get around this (for the time being) we
 # run everything in a single test case
-@test "Ledger app scenario 1" {
+@test "Basic tests" {
   [[ $(getAddress '0/1') == "X-local1drppshkst2ccygyq37m2z9e3ex2jhkd2j49aht" ]]
 
   [[ $(getBalance) == "0 nAVAX" ]]
@@ -31,13 +31,13 @@ transfer(){
   [[ "$(getBalance)" == "375000000 nAVAX" ]]
 
   transfer "3000000 nAVAX" $FAKE_USER
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalance)" == "371000000 nAVAX" ]]
 
   # Transfer the rest away so we are clean for other tests
   transfer "370000000 nAVAX" $FAKE_USER
-  sleep 8
+  sleep 1.5
 
   [[ "$(getBalance)" == "0 nAVAX" ]]
 }

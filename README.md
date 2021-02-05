@@ -29,12 +29,13 @@ snap install --devmode avalanche-wallet-cli.snap
 If you have the [Nix package manager](https://nixos.org/) installed, you can install the CLI by checking out the git repository, and running the following command from the repository's top level directory:
 
 ```bash
-$(nix-build)/bin/avalanche-ledger-cli
+$(nix-build -A cli-app-avalanche)/bin/avalanche-ledger-cli 
 ```
 or, for development purposes:
 ```bash
 $ nix-shell
 [nix-shell:~]$ yarn install --frozen-lockfile
+[nix-shell:~]$ node cli/cli.js 
 ```
 
 ## Running the CLI
@@ -42,3 +43,4 @@ Once installed, the CLI will be available using:
 ```bash
 avalanche-cli
 ```
+ 

@@ -2,7 +2,6 @@
 
 const AvaJS = require("avalanche");
 const bech32 = require('bech32');
-const BinTools = AvaJS.BinTools.getInstance();
 const BN = require("bn.js");
 const commander = require("commander");
 const HDKey = require('hdkey');
@@ -25,6 +24,7 @@ function automationEnabled(options) {
 function flowAccept(speculos, n) {
   console.error("Automatically accepting prompt.")
   return new Promise(r => {
+    var isFirst, isLast;
     var prompts = [{}];
     var subscript = speculos.automationEvents.subscribe({
       next: evt => {
@@ -83,8 +83,8 @@ function avaJsWithNode(uri_string) {
 
 async function getExtendedPublicKey(ledger, deriv_path) {
   console.error("Please accept on your ledger device");
-  extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(logErrorAndExit);
-  hdw = new HDKey();
+  const extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(logErrorAndExit);
+  const hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
   return hdw

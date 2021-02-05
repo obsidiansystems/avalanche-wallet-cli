@@ -19,7 +19,6 @@ const EthereumjsTx = require("@ethereumjs/tx").Transaction;
 const {bnToRlp, rlp} = require("ethereumjs-util");
 const Web3 = require('web3');
 const keccak256 = require('keccak256');
-const secp256k1 = require('secp256k1');
 
 const {expect} = require("chai");
 
@@ -54,7 +53,6 @@ const nativeAssetCallAddr = "0x0100000000000000000000000000000000000002"
 const ASSET_CALL_GAS_LIMIT = 1e5
 
 // https://github.com/ava-labs/avalanche-docs/blob/4be62d012368fe77caec6afe9d963ed4cc1e6501/learn/platform-overview/transaction-fees.md
-const C_CHAIN_GAS_LIMIT = 1e9;
 const C_CHAIN_BASE_TX_FEE = 21000;
 const C_CHAIN_GAS_PRICE = 4.7e-7 * 1e9 * 1e9 // 1 AVAX = 1e9 nAVAX, 1nAVAX ~ 1 Gwei, 1 Gwei = 1e9 Wei;
 
@@ -414,9 +412,6 @@ async function get_first_unused_address(ava, chain_objects, hdkey) {
 function hdkey_to_pkh(hdkey) {
   return (new AvaJS.common.SECP256k1KeyPair()).addressFromPublicKey(hdkey.publicKey);
 }
-function eth_hdkey_to_pkh(hdkey) {
-  return eth_key_to_address(Buffer.from(secp256k1.publicKeyConvert(hdkey.publicKey, false)).slice(1));
-}
 function eth_key_to_address(pk) {
   return keccak256(pk).slice(-20);
 }
@@ -444,7 +439,6 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
   // Only when INDEX_RANGE addresses have no UTXOs do we assume we are done
   var index = 0;
   var all_unused = false;
-  // const hashAddress = chain_objects.alias === "C" ? eth_hdkey_to_pkh : hdkey_to_pkh;
   const hashAddress = hdkey_to_pkh;
   while (!all_unused || index < SCAN_SIZE) {
     const batch = {
@@ -1085,8 +1079,7 @@ program
         console.error(unsignedExportTx.toBuffer().toString("hex"));
 
 
-        // const changeAddress = "bogusChangeAddress"; // unused in this codepath probably.
-        const addr_to_path = {}; // XXX
+        const addr_to_path = {};
         addr_to_path[fromAddressBech] = options.path;
 
         const txbuff = unsignedExportTx.toBuffer();
@@ -1116,8 +1109,6 @@ program
               if (automationEnabled(options))
                 await flowMultiPrompt(ledger.transport);
               let changePath = null;
-              // if (changeAddress != null)
-              //   changePath = BipPath.fromString(ETH_BIP32_PREFIX + "/" + addr_to_path[changeAddress]);
               const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
               return result.signatures;
             }, bip32Prefix, txbuff, path_suffixes)
@@ -1142,8 +1133,6 @@ program
         console.error("Issuing TX...");
 
         txid = await source_chain_objects.api.issueTx(signedTx);
-
-        // */
 
       } else {
         if (automationEnabled(options)) flowAccept(ledger.transport);
@@ -1192,7 +1181,6 @@ program
     const ava = ava_js_from_options(options);
     const toAddress = options.to;
     const destination_chain_objects = parseAddress(toAddress)(ava);
-    // console.log(["toAddress:", destination_chain_objects]);
     const source_chain_objects = make_chain_objects(ava, options.chain);
     return await withLedger(options, async ledger => {
       const version = await getParsedVersion(ledger);
@@ -1654,7 +1642,6 @@ async function automationStart(speculos, interactionFunc) {
   // This is so that you can just "await flowAccept(this.speculos);" in a test
   // without actually waiting for the prompts.  If we don't do this, you can
   // end up with two flowAccept calls active at once, causing issues.
-  // let subNum = speculos.handlerNum++;
   let promptLockResolve;
   let promptsLock=new Promise(r=>{promptLockResolve=r});
   if(speculos.promptsEndPromise) {

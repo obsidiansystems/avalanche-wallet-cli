@@ -1108,17 +1108,17 @@ program
         const path_suffix_to_sig_map =
           getSupportsUnhashedSigningForVersion(version, [[destination_chain_alias, "export"]])
           ? await sign_with_ledger(async (prefix, suffixes, buff) => {
-              if (automationEnabled(options)) flowAccept(ledger.transport);
-              const result = await ledger.signHash(prefix, suffixes, buff);
-              return result
-            }, bip32Prefix, hash, path_suffixes)
-          : await sign_with_ledger(async (prefix, suffixes, buff) => {
               if (automationEnabled(options))
                 await flowMultiPrompt(ledger.transport);
               let changePath = null;
               const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
               return result.signatures;
             }, bip32Prefix, txbuff, path_suffixes)
+          : await sign_with_ledger(async (prefix, suffixes, buff) => {
+              if (automationEnabled(options)) flowAccept(ledger.transport);
+              const result = await ledger.signHash(prefix, suffixes, buff);
+              return result
+          }, bip32Prefix, hash, path_suffixes)
           ;
 
         const sigs = [];

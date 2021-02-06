@@ -567,11 +567,12 @@ program
           default: {
             if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
             const root_key = await get_extended_public_key(avalancheLedger, bip32Prefix);
+            const units = options.assetID == undefined ? " nAVAX" : ""
             const assetID = options.assetID == undefined
                   ? await chain_objects.api.getAVAXAssetID()
-                  : options.assetID;
+                  : BinTools.cb58Decode(options.assetID);
             const balance = await sum_child_balances(ava, chain_objects, root_key, assetID);
-            console.log(balance.toString() + " nAVAX");
+            console.log(balance.toString() + units);
           }
         }
       });
@@ -584,15 +585,13 @@ program
           break;
         }
         default: {
+          const units = options.assetID == undefined ? " nAVAX" : ""
           const assetID = options.assetID == undefined
-                ? await chain_objects.api.getAVAXAssetID()
+                ? BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
                 : options.assetID;
-          const result
-            = (await chain_objects.api.getBalance(address,
-                BinTools.cb58Encode(assetID)
-                )).balance;
+          const result = (await chain_objects.api.getBalance(address, assetID)).balance;
 
-          console.log(result.toString(10, 0) + " nAVAX");
+          console.log(result.toString(10, 0) + units);
           break;
         }
       }

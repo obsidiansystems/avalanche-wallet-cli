@@ -125,7 +125,7 @@ ANT_A=verma4Pa9biWKbjDGNsTXU47cYCyDSNGSU1iBkxucfVSFVXdv
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "0 WEI"
   transfer "10 nAVAX" "$C_CHAIN_TRANSFER_TARGET_ADDRESS"
   sleep 1.5
-  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "10 WEI"
+  assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS")" == "10000000000 WEI"
   # C-chain assetCall
   assertTest "$(getBalanceCChain "$C_CHAIN_TRANSFER_TARGET_ADDRESS --assetID $ANT_A")" == "0x0"
   transfer "0x0" "$C_CHAIN_TRANSFER_TARGET_ADDRESS" "$ANT_A"

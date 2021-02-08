@@ -948,7 +948,7 @@ program
           if(options.assetID == undefined) {
             const txParams = {
               to: chain_objects.addrHex,
-              value: toHex(amount),
+              value: toHex(amount * 1e9), // nAVAX/GWEI to WEI
               gasLimit: toHex(C_CHAIN_BASE_TX_FEE),
               gasPrice: toHex(C_CHAIN_GAS_PRICE)
             };

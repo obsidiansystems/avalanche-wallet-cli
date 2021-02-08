@@ -474,7 +474,7 @@ async function traverse_used_keys(ava, chain_objects, hdkey, batched_function) {
 
 // Given a hdkey (at the account level), sum the UTXO balances
 // under that key.
-async function sum_child_balances(ava, chain_objects, hdkey) {
+async function sum_child_balances(ava, chain_objects, hdkey, assetID) {
   var balance = new BN(0);
 
   await traverse_used_keys(ava, chain_objects, hdkey, async batch => {
@@ -482,7 +482,9 @@ async function sum_child_balances(ava, chain_objects, hdkey) {
     for (const [pkhIgnored, utxoids] of Object.entries(batch.utxoset.addressUTXOs)) {
       var bal = new BN(0);
       for (const utxoid of Object.keys(utxoids)) {
-        bal = bal.add(batch.utxoset.utxos[utxoid].getOutput().getAmount());
+        const utxo = batch.utxoset.utxos[utxoid];
+        if(utxo.assetid.equals(assetID))
+            bal = bal.add(utxo.getOutput().getAmount());
       }
       balance = balance.add(bal);
     }
@@ -565,8 +567,12 @@ program
           default: {
             if (automationEnabled(options)) flowAccept(avalancheLedger.transport);
             const root_key = await get_extended_public_key(avalancheLedger, bip32Prefix);
-            const balance = await sum_child_balances(ava, chain_objects, root_key);
-            console.log(balance.toString() + " nAVAX");
+            const units = options.assetID == undefined ? " nAVAX" : ""
+            const assetID = options.assetID == undefined
+                  ? await chain_objects.api.getAVAXAssetID()
+                  : BinTools.cb58Decode(options.assetID);
+            const balance = await sum_child_balances(ava, chain_objects, root_key, assetID);
+            console.log(balance.toString() + units);
           }
         }
       });
@@ -579,12 +585,13 @@ program
           break;
         }
         default: {
-          const result
-            = (await chain_objects.api.getBalance(address,
-                BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
-                )).balance;
+          const units = options.assetID == undefined ? " nAVAX" : ""
+          const assetID = options.assetID == undefined
+                ? BinTools.cb58Encode(await chain_objects.api.getAVAXAssetID())
+                : options.assetID;
+          const result = (await chain_objects.api.getBalance(address, assetID)).balance;
 
-          console.log(result.toString(10, 0) + " nAVAX");
+          console.log(result.toString(10, 0) + units);
           break;
         }
       }
@@ -1101,17 +1108,17 @@ program
         const path_suffix_to_sig_map =
           getSupportsUnhashedSigningForVersion(version, [[destination_chain_alias, "export"]])
           ? await sign_with_ledger(async (prefix, suffixes, buff) => {
-              if (automationEnabled(options)) flowAccept(ledger.transport);
-              const result = await ledger.signHash(prefix, suffixes, buff);
-              return result
-            }, bip32Prefix, hash, path_suffixes)
-          : await sign_with_ledger(async (prefix, suffixes, buff) => {
               if (automationEnabled(options))
                 await flowMultiPrompt(ledger.transport);
               let changePath = null;
               const result = await ledger.signTransaction(prefix, suffixes, buff, changePath);
               return result.signatures;
             }, bip32Prefix, txbuff, path_suffixes)
+          : await sign_with_ledger(async (prefix, suffixes, buff) => {
+              if (automationEnabled(options)) flowAccept(ledger.transport);
+              const result = await ledger.signHash(prefix, suffixes, buff);
+              return result
+          }, bip32Prefix, hash, path_suffixes)
           ;
 
         const sigs = [];

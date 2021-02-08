@@ -147,14 +147,18 @@ program
     const amountBN = new BN(amount);
     if(automationEnabled(options)) flowAccept(ledger.transport);
     const non_change_key = await getExtendedPublicKey(ledger, AVA_BIP32_PREFIX + "/0");
+    var initialHolders = [];
     for (let i = 0; i < 5; i++) {
       const key = non_change_key.deriveChild(i);
       const to = hdkey_to_avax_address(key);
+      initialHolders.push({address: to, amount: 1e3});
       const txHash = await avm.send(FAUCET_USERNAME, FAUCET_PASSWORD, AVAX_ASSET_ID, amountBN, to, [FAUCET_ADDRESS]).catch(logErrorAndExit);
       console.error("Funding", i, to, "TX", txHash.toString());
       // 1500 seems to be the minimum for working in CI
       await sleep(1500);
     }
+    await avm.createFixedCapAsset(FAUCET_USERNAME, FAUCET_PASSWORD, "DOGECOIN", "DOGE", 0, initialHolders);
+    await sleep(1500);
   } finally {
     transport.close();
   }

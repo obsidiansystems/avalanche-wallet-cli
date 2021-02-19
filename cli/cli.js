@@ -537,8 +537,7 @@ program
       const web3 = new Web3(rpc.toString());
       if(options.assetID == undefined) {
           const result = await web3.eth.getBalance(addrHex);
-          result = result/1000000000 //wei to gwei, nAVAX
-          console.log(result + " nAVAX");
+          console.log((result/1000000000) + " nAVAX");
       }
       else {
           const response = await api.callMethod (

@@ -57,7 +57,7 @@
     "-all-root"
   ];
 
-in runCommand "squashfs.img" {
+in runCommand "avalanche-wallet-cli.snap" {
   nativeBuildInputs = [ squashfsTools yq ];
 
   closureInfo = closureInfo {

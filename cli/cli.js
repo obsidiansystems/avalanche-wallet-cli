@@ -264,7 +264,7 @@ function requestLedgerAccept() {
 
 const program = new commander.Command();
 
-program.version("0.3.0");
+program.version("0.3.1");
 
 program
   .command("list-devices")
@@ -537,7 +537,7 @@ program
       const web3 = new Web3(rpc.toString());
       if(options.assetID == undefined) {
           const result = await web3.eth.getBalance(addrHex);
-          console.log(result + " WEI");
+          console.log((result/1000000000) + " nAVAX");
       }
       else {
           const response = await api.callMethod (

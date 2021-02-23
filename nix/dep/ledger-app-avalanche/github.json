@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "ledger-app-avalanche",
-  "branch": "develop",
+  "branch": "jg-evm-support",
   "private": false,
-  "rev": "80adaae23b946b42e67da055cfe7ed0387278424",
-  "sha256": "0kv09xg4rlkv2xfw8bizlw3zlc15s4mkf823c31njd40a5aj3ll2"
+  "rev": "8301aca1031067e0cff37a48f2b4688d25d0a201",
+  "sha256": "18i975xr0618hrx1rixz62x2d4vd4aq25jc7s5b8awnvz43q9hbc"
 }

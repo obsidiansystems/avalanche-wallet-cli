@@ -135,11 +135,9 @@ cli/cli.js transfer --to $NEW_ADDRESS --amount 10000000
 
 You'll be prompted to accept a "Provide Extended Public Key" request on your
 ledger. Accept this, then, a couple of seconds later, you should be presented
-with the amount being tranferred and the destination address.  Check that it the
+with the destination address and the amount being transferred.  Check that it the
 destination address and amount is what you expect. (The destination address
-should match the result of `echo $NEW_ADDRESS`). Note that since change
-address suppression is not working yet, there will often be two outputs, one
-of which must match your input.
+should match the result of `echo $NEW_ADDRESS`).
 
 You should then also be presented with the fees associated with the transaction.
 

@@ -34,7 +34,7 @@
           layout = (args.layout or {}) // {
             # Bind mount the Snap's root nix directory to `/nix` in the
             # execution environment's filesystem namespace.
-            
+
             # EDIT: Actually move it to /usr/ because current snap rejects if we try
             # to bind /nix
             "/usr/store".bind = "$SNAP/usr/store";
@@ -57,7 +57,7 @@
     "-all-root"
   ];
 
-in runCommand "squashfs.img" {
+in runCommand "avalanche-wallet-cli.snap" {
   nativeBuildInputs = [ squashfsTools yq ];
 
   closureInfo = closureInfo {
@@ -85,11 +85,12 @@ in runCommand "squashfs.img" {
     chmod -R u+w $root/usr/store
 
     # Brute-force switching from /nix/store to /usr/store
-    
+
     # Update all links to use the new dir
     find $root/usr/store -lname '/nix/store/*' | xargs '-I{}' sh -c 'ln -sfn "/usr/$(readlink {} | cut -d/ -f3-)" "{}"'
+
     # Update all references in files to /nix/store/ to /usr/store/
-    find $root/usr/store -type f | xargs '-I{}' sed -i 's|/nix/store/|/usr/store/|g' '{}'
+    find $root/usr/store -type f -print0 | xargs -0 '-I{}' sed -i 's|/nix/store/|/usr/store/|g' '{}'
   )
 
   # Generate the squashfs image.

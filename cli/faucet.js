@@ -2,7 +2,6 @@
 
 const AvaJS = require("avalanche");
 const bech32 = require('bech32');
-const BinTools = AvaJS.BinTools.getInstance();
 const BN = require("bn.js");
 const commander = require("commander");
 const HDKey = require('hdkey');
@@ -25,6 +24,7 @@ function automationEnabled(options) {
 function flowAccept(speculos, n) {
   console.error("Automatically accepting prompt.")
   return new Promise(r => {
+    var isFirst, isLast;
     var prompts = [{}];
     var subscript = speculos.automationEvents.subscribe({
       next: evt => {
@@ -83,8 +83,8 @@ function avaJsWithNode(uri_string) {
 
 async function getExtendedPublicKey(ledger, deriv_path) {
   console.error("Please accept on your ledger device");
-  extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(logErrorAndExit);
-  hdw = new HDKey();
+  const extended_public_key = await ledger.getWalletExtendedPublicKey(deriv_path).catch(logErrorAndExit);
+  const hdw = new HDKey();
   hdw.publicKey = extended_public_key.public_key;
   hdw.chainCode = extended_public_key.chain_code;
   return hdw
@@ -147,14 +147,18 @@ program
     const amountBN = new BN(amount);
     if(automationEnabled(options)) flowAccept(ledger.transport);
     const non_change_key = await getExtendedPublicKey(ledger, AVA_BIP32_PREFIX + "/0");
+    var initialHolders = [];
     for (let i = 0; i < 5; i++) {
       const key = non_change_key.deriveChild(i);
       const to = hdkey_to_avax_address(key);
+      initialHolders.push({address: to, amount: 1e3});
       const txHash = await avm.send(FAUCET_USERNAME, FAUCET_PASSWORD, AVAX_ASSET_ID, amountBN, to, [FAUCET_ADDRESS]).catch(logErrorAndExit);
       console.error("Funding", i, to, "TX", txHash.toString());
       // 1500 seems to be the minimum for working in CI
       await sleep(1500);
     }
+    await avm.createFixedCapAsset(FAUCET_USERNAME, FAUCET_PASSWORD, "DOGECOIN", "DOGE", 0, initialHolders);
+    await sleep(1500);
   } finally {
     transport.close();
   }

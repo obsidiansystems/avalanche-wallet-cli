@@ -45,8 +45,8 @@ const bech32 = require('bech32');
 
 const AVA_BIP32_PREFIX = "m/44'/9000'/0'" // Restricted to 0' for now
 const ETH_BIP32_PREFIX = "m/44'/60'/0'" // Restricted to 0' for now
-const INDEX_RANGE = 20; // a gap of at least 20 indexes is needed to claim an index unused
-const SCAN_SIZE = 70; // the total number of utxos to look at initially to calculate last index
+const INDEX_RANGE = 100; // a gap of at least 100 indexes is needed to claim an index unused
+const SCAN_SIZE = 500; // the total number of utxos to look at initially to calculate last index
 
 const nativeAssetCallAddr = "0x0100000000000000000000000000000000000002"
 
